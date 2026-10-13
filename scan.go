@@ -22,16 +22,13 @@ const (
 )
 
 var skipDirNames = map[string]struct{}{
-	"node_modules": {},
-	".git":         {},
-	"vendor":       {},
-	"dist":         {},
-	".next":        {},
-	"coverage":     {},
-	".turbo":       {},
-	".cache":       {},
-	".tools":       {},
-	".contexttax":  {},
+	"node_modules": {}, ".git": {}, "vendor": {}, "dist": {},
+	".next": {}, "coverage": {}, ".turbo": {}, ".cache": {},
+	".tools": {}, ".contexttax": {},
+	"appdata": {}, "application data": {}, "local settings": {},
+	"$recycle.bin": {}, "system volume information": {},
+	"windows": {}, "program files": {}, "program files (x86)": {},
+	"programdata": {}, "recovery": {},
 }
 
 var knownExt = map[string]struct{}{
@@ -243,13 +240,15 @@ func collectSources(root string) ([]sourceFile, error) {
 	var out []sourceFile
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			// A locked or protected folder must not fail the whole scan.
+			if d == nil || d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if d.IsDir() {
-			if p != root {
-				if _, skip := skipDirNames[d.Name()]; skip {
-					return filepath.SkipDir
-				}
+			if p != root && skipDir(d.Name()) {
+				return filepath.SkipDir
 			}
 			return nil
 		}
@@ -258,7 +257,7 @@ func collectSources(root string) ([]sourceFile, error) {
 		}
 		rel, err := filepath.Rel(root, p)
 		if err != nil {
-			return err
+			return nil
 		}
 		rel = filepath.ToSlash(rel)
 		kind, id, name, preload, ok := classify(rel)
@@ -267,7 +266,7 @@ func collectSources(root string) ([]sourceFile, error) {
 		}
 		b, err := os.ReadFile(p)
 		if err != nil {
-			return err
+			return nil
 		}
 		body := string(b)
 		chars := utf8.RuneCountInString(body)
@@ -292,6 +291,11 @@ func collectSources(root string) ([]sourceFile, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Rel < out[j].Rel })
 	return out, nil
+}
+
+func skipDir(name string) bool {
+	_, ok := skipDirNames[strings.ToLower(name)]
+	return ok
 }
 
 func classify(rel string) (kind, id, name, preload string, ok bool) {

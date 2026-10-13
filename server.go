@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"time"
 
 	_ "embed"
@@ -83,8 +86,13 @@ func writeAPIError(w http.ResponseWriter, status int, msg string) {
 }
 
 // Serve scans root on each request and serves the dashboard on addr.
+// The local page is the interface, so a browser is opened once it is listening.
 func Serve(root, addr string) error {
 	abs, err := absDir(root)
+	if err != nil {
+		return err
+	}
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
@@ -93,5 +101,27 @@ func Serve(root, addr string) error {
 		Handler:           newHandler(abs),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	return srv.ListenAndServe()
+	go openBrowser(localURL(ln.Addr().String()))
+	return srv.Serve(ln)
+}
+
+func localURL(listen string) string {
+	_, port, err := net.SplitHostPort(listen)
+	if err != nil || port == "" {
+		return "http://127.0.0.1:7070/"
+	}
+	return "http://127.0.0.1:" + port + "/"
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }

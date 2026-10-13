@@ -403,6 +403,15 @@ func TestScanMissingDir(t *testing.T) {
 	}
 }
 
+func TestSkipProtectedNames(t *testing.T) {
+	if !skipDir("AppData") || !skipDir("$Recycle.Bin") || !skipDir("node_modules") {
+		t.Fatal("expected protected directories to be skipped")
+	}
+	if skipDir("src") {
+		t.Fatal("src should be scanned")
+	}
+}
+
 func TestHTTP(t *testing.T) {
 	abs, err := filepath.Abs("testdata/repo")
 	if err != nil {

@@ -29,9 +29,23 @@ contexttax /path/to/repo
 contexttax -addr :8080 .
 ```
 
-Open <http://127.0.0.1:7070>. The page is embedded in the binary. There is no Node server and no frontend framework.
+Open <http://127.0.0.1:7070>. The program opens that page in your browser. The page is the interface. It is embedded in the binary. There is no Node server and no frontend framework.
 
-Each page load, and each `GET /api/report`, scans the tree again.
+On Windows, download `contexttax_0.2.1_windows_amd64.exe` from the releases page. You do not need Go installed. In Command Prompt, from the repository you want to scan:
+
+```bat
+contexttax_0.2.1_windows_amd64.exe
+```
+
+Or point it at a folder:
+
+```bat
+contexttax_0.2.1_windows_amd64.exe C:\path\to\repo
+```
+
+Do not use `./contexttax`. That is a macOS and Linux command. The clone address is `https://github.com/0XKageX0/contexttax.git`.
+
+Each page load, and each `GET /api/report`, scans the tree again. A folder Windows will not let the program read is skipped. It does not fail the scan.
 
 ## What it reads
 

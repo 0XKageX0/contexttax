@@ -486,7 +486,14 @@
     render();
     try {
       const res = await fetch(reportURL(), { cache: "no-store" });
-      if (!res.ok) throw new Error("Report failed (" + res.status + ")");
+      if (!res.ok) {
+        let msg = "Report failed (" + res.status + ")";
+        try {
+          const body = await res.json();
+          if (body && body.error) msg = body.error;
+        } catch (ignore) {}
+        throw new Error(msg);
+      }
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       report = data;
@@ -655,7 +662,7 @@
         (inflight ? "Reading the repo" : "Waiting") + "</p></div>" +
         '<div class="nav-actions">' + themeBtn() + "</div></header>" +
         (errorText
-          ? '<p class="error">' + esc(errorText) + '</p><button type="button" class="btn ink" data-action="rescan">Retry</button>'
+          ? '<p class="error">' + esc(errorText) + '</p><p class="hint">Open a terminal in the repository and run contexttax.exe, or pass the folder: contexttax.exe C:\\path\\to\\repo</p><button type="button" class="btn ink" data-action="rescan">Retry</button>'
           : '<p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>');
       return;
     }
