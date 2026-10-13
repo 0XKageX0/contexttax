@@ -4,444 +4,301 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="light">
 <title>contexttax</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314110e'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23e4533a'/%3E%3Ctext x='16' y='20' text-anchor='middle' font-family='Georgia' font-size='11' fill='%23fff8f3'%3ECT%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2312151c'/%3E%3Crect x='6' y='14' width='20' height='8' fill='%23ffe14a'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0c0b0a;
-    --card: #161311;
-    --inset: #0a0908;
-    --line: #3a3228;
-    --fg: #f7f1e8;
-    --muted: #b7a898;
-    --brass: #f0d09a;
-    --brass-deep: #c4923e;
-    --accent: #e4533a;
-    --accent-text: #ffb4a8;
-    --serif: "Fraunces", "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
-    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --ink: #12151c;
+    --paper: #f3f5f8;
+    --card: #ffffff;
+    --line: #12151c;
+    --mute: #5c6472;
+    --yellow: #ffe14a;
+    --blue: #d7e4ff;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
   }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    background:
-      radial-gradient(900px 420px at 12% -10%, rgba(224, 83, 58, 0.16), transparent 55%),
-      radial-gradient(700px 380px at 100% 0%, rgba(196, 146, 62, 0.14), transparent 50%),
-      var(--bg);
-    color: var(--fg);
-    font-family: var(--mono);
-    font-size: 14px;
-    line-height: 1.5;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.45;
     min-height: 100vh;
   }
-  ::selection { background: #e4533a; color: #fff8f3; }
-  :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+  ::selection { background: var(--yellow); color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
   button { font: inherit; color: inherit; cursor: pointer; }
-  .stripe { height: 3px; background: linear-gradient(90deg, var(--accent), var(--brass)); transform-origin: left; animation: draw 0.8s cubic-bezier(.16,1,.3,1) both; }
-  .head {
+  .topline {
     position: fixed;
-    left: 0;
-    right: 0;
     top: 0;
-    height: 2px;
-    z-index: 30;
-    pointer-events: none;
-    opacity: 0;
-    background: linear-gradient(90deg, transparent, var(--brass), var(--accent), transparent);
-    box-shadow: 0 0 22px var(--accent);
-  }
-  body.scanning .head { opacity: 1; animation: scanline 1.15s cubic-bezier(.45,0,.2,1) infinite; }
-  .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 64px; }
-  header.top {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px 20px;
-    align-items: flex-end;
-    justify-content: space-between;
-    margin-bottom: 22px;
-  }
-  .brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
-  .seal {
-    width: 44px;
-    height: 44px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    background: var(--accent);
-    color: #fff8f3;
-    font-family: var(--serif);
-    font-weight: 640;
-    letter-spacing: 0.02em;
-    position: relative;
-  }
-  h1 {
-    font-family: var(--serif);
-    font-weight: 640;
-    font-size: 2rem;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    margin: 0;
-  }
-  .eyebrow {
-    margin: 0 0 4px;
-    color: var(--accent-text);
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-  .root {
-    margin: 6px 0 0;
-    color: var(--muted);
-    font-size: 12px;
-    overflow-wrap: anywhere;
-  }
-  .rescan {
-    min-height: 44px;
-    padding: 0 16px;
-    border-radius: 999px;
-    border: 1px solid var(--brass-deep);
-    background: transparent;
-    color: var(--brass);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-size: 12px;
-  }
-  .rescan, .cut, .chip, .pick, .more, .pager { transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
-  .rescan:active, .cut:active, .chip:active { transform: scale(0.97); }
-  .rescan:disabled { opacity: 0.55; cursor: wait; }
-  .hero {
-    display: grid;
-    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-    gap: 22px 28px;
-    align-items: end;
-    margin-bottom: 22px;
-  }
-  .bill { margin: 0; }
-  .bill strong {
-    display: block;
-    font-family: var(--serif);
-    font-weight: 640;
-    font-size: clamp(3.1rem, 8vw, 6.2rem);
-    line-height: 0.9;
-    letter-spacing: -0.04em;
-    color: var(--brass);
-    font-variant-numeric: tabular-nums;
-  }
-  .bill em { font-style: normal; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
-  .splitline { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
-  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .stat {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 12px 14px;
-    min-width: 0;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-  }
-  .stat b {
-    display: block;
-    font-family: var(--serif);
-    font-weight: 560;
-    font-size: 1.55rem;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-  }
-  .stat span {
-    display: block;
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .stat.warn b { color: var(--accent-text); }
-  .share { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--inset); margin: 14px 0 0; position: relative; }
-  .share span { display: block; height: 100%; min-width: 2px; transform-origin: left center; }
-  .share::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(100deg, transparent 30%, rgba(255, 248, 236, 0.72), transparent 70%);
+    left: 0;
+    z-index: 20;
+    width: 30%;
+    height: 3px;
+    background: var(--ink);
     transform: translateX(-120%);
     pointer-events: none;
   }
-  .share span:nth-child(4n+1) { background: #f0d09a; }
-  .share span:nth-child(4n+2) { background: #a8843e; }
-  .share span:nth-child(4n+3) { background: #8a4a32; }
-  .share span:nth-child(4n+4) { background: #5c4a2e; }
-  .note { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
-  .split { display: flex; flex-direction: column; gap: 22px; }
-  .agents-col { order: 2; }
-  .findings-col { order: 1; }
-  h2 {
-    font-family: var(--serif);
-    font-weight: 560;
-    font-size: 1.35rem;
-    letter-spacing: -0.02em;
-    margin: 0 0 4px;
+  body.scanning .topline { animation: walk 0.85s linear infinite; }
+  .wrap { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 72px; }
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 18px;
+    border-bottom: 2px solid var(--ink);
   }
-  .hint { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
-  .group-label {
-    margin: 16px 0 8px;
-    color: var(--muted);
-    font-size: 11px;
-    letter-spacing: 0.14em;
+  .word {
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    font-size: 15px;
+  }
+  .nav-meta { margin: 2px 0 0; color: var(--mute); font-family: var(--mono); font-size: 11px; }
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+    gap: 28px;
+    align-items: end;
+    padding: 36px 0 28px;
+    border-bottom: 2px solid var(--ink);
+  }
+  h1 {
+    margin: 8px 0 12px;
+    font-weight: 500;
+    font-size: clamp(2.6rem, 7vw, 4.6rem);
+    letter-spacing: -0.045em;
+    line-height: 0.92;
+  }
+  h1 span { display: block; overflow: hidden; }
+  h1 i { display: block; font-style: normal; }
+  .kicker {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    color: var(--mute);
   }
-  .agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 10px; }
-  .agent {
-    text-align: left;
-    width: 100%;
-    background: linear-gradient(180deg, #1c1814, var(--card));
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 12px 14px;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  .lede { margin: 0; max-width: 38rem; color: var(--mute); }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .btn {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 2px solid var(--ink);
+    border-radius: 2px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--ink);
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
-  @media (hover: hover) {
-    .agent { transition: border-color 0.18s ease, box-shadow 0.18s ease; }
-    .agent:hover { border-color: #6a5a45; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35); }
+  .btn.ink { background: var(--ink); color: #f4f6fb; }
+  .btn.yellow { background: var(--yellow); }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+  .btn:disabled { opacity: 0.55; cursor: wait; }
+  .btn.small { min-height: 40px; padding: 0 12px; box-shadow: 3px 3px 0 var(--ink); font-size: 13px; }
+  .btn.small:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+  .slab {
+    background: var(--yellow);
+    border: 2px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+    padding: 16px 16px 14px;
+    transform-origin: left center;
   }
-  .agent.picked { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
-  .pick {
+  .slab strong {
     display: block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    letter-spacing: -0.05em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .fine { margin: 10px 0 0; font-family: var(--mono); font-size: 12px; }
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0;
+    border-bottom: 2px solid var(--ink);
+  }
+  .facts div { padding: 14px 12px 14px 0; border-right: 2px solid var(--ink); }
+  .facts div:last-child { border-right: 0; }
+  .facts dt {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .facts dd {
+    margin: 4px 0 0;
+    font-family: var(--mono);
+    font-size: 1.35rem;
+    letter-spacing: -0.04em;
+  }
+  .facts dd.warn { background: var(--yellow); display: inline-block; padding: 0 4px; }
+  .pathline {
+    margin: 0;
+    padding: 10px 0;
+    border-bottom: 2px solid var(--ink);
+    color: var(--mute);
+    font-family: var(--mono);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  .split { display: grid; gap: 36px; margin-top: 28px; }
+  h2 {
+    margin: 0 0 4px;
+    font-size: 1.35rem;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+  }
+  .hint { margin: 0 0 12px; color: var(--mute); font-size: 13px; }
+  .group-label {
+    margin: 18px 0 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .row {
+    padding: 14px 0;
+    border-bottom: 2px solid var(--ink);
+  }
+  .row.picked { background: var(--blue); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
+  .pick {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: start;
     width: 100%;
     text-align: left;
-    background: transparent;
+    background: none;
     border: 0;
     padding: 0;
-    min-height: 44px;
   }
-  .agent-top, .file-row, .finding-top, .loc {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    align-items: baseline;
-  }
-  .agent-name { font-family: var(--serif); font-size: 1.15rem; letter-spacing: -0.02em; }
-  .tok { color: var(--brass); font-variant-numeric: tabular-nums; }
-  .tok.hot { color: var(--accent-text); }
-  .meta { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-  .files { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
-  .file-card {
-    display: block;
-    margin: 0;
-    padding-top: 8px;
-    border-top: 1px solid var(--line);
-    color: var(--muted);
-    font-size: 12px;
-    overflow-wrap: anywhere;
-  }
-  .purpose { margin: 4px 0 0; color: var(--fg); font-size: 13px; }
-  .when { margin: 2px 0 0; color: var(--muted); font-size: 11px; letter-spacing: 0.04em; text-transform: none; }
-  .cut {
-    min-height: 44px;
-    margin-top: 8px;
-    padding: 0 14px;
-    border-radius: 999px;
-    border: 1px solid var(--accent);
-    background: transparent;
-    color: var(--accent-text);
-  }
-  .cut:hover { background: #2a1612; }
-  .bar { height: 4px; border-radius: 99px; background: var(--inset); margin-top: 10px; overflow: hidden; }
-  .bar i { display: block; height: 100%; background: var(--brass-deep); transform-origin: left center; }
-  .enter .bar i { animation: grow 0.8s cubic-bezier(.2,.7,.2,1) both; }
-  .bar.hot i { background: var(--accent); }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; position: relative; }
-  .pill {
-    position: absolute;
-    left: 0;
-    top: 0;
-    border-radius: 999px;
-    background: #2a2416;
-    border: 1px solid var(--brass-deep);
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0;
-  }
-  .pill.on {
-    opacity: 1;
-    transition: transform 0.48s cubic-bezier(.2,.85,.2,1), width 0.48s cubic-bezier(.2,.85,.2,1), height 0.48s cubic-bezier(.2,.85,.2,1);
-  }
-  .chip {
-    min-height: 44px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: transparent;
-    color: var(--muted);
+  .idx { font-family: var(--mono); font-size: 12px; color: var(--mute); padding-top: 4px; }
+  .agent-name { font-weight: 600; letter-spacing: -0.02em; }
+  .tok { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .tok.hot { background: var(--yellow); padding: 0 4px; }
+  .meta { color: var(--mute); font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .files { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+  .file-card { border-top: 1px solid #c5cad3; padding-top: 8px; position: relative; }
+  .purpose { margin: 4px 0 0; }
+  .when { margin: 2px 0 0; color: var(--mute); font-family: var(--mono); font-size: 12px; }
+  code { font-family: var(--mono); font-size: 0.92em; overflow-wrap: anywhere; }
+  .bar { height: 8px; margin-top: 8px; background: #e6e9ef; border: 2px solid var(--ink); }
+  .bar i { display: block; height: 100%; background: var(--ink); transform-origin: left center; }
+  .bar.hot i { background: var(--ink); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px 0; position: relative; margin: 0 0 8px; border-bottom: 2px solid var(--ink); }
+  .tab {
     position: relative;
     z-index: 1;
-    background: transparent;
-  }
-  .chip[aria-pressed="true"] { border-color: transparent; color: var(--brass); background: transparent; }
-  .finding {
-    border: 1px solid var(--line);
-    border-left-width: 3px;
-    border-radius: 12px;
-    padding: 12px 14px;
-    margin: 0 0 8px;
-    background: var(--card);
-  }
-  .finding[data-kind="duplicate_line"] { border-left-color: var(--brass-deep); }
-  .finding[data-kind="missing_path"],
-  .finding[data-kind="missing_script"],
-  .finding[data-kind="oversized_file"] { border-left-color: var(--accent); }
-  .k { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brass); }
-  .finding[data-kind="missing_path"] .k,
-  .finding[data-kind="missing_script"] .k,
-  .finding[data-kind="oversized_file"] .k { color: var(--accent-text); }
-  .quote {
-    margin: 8px 0;
-    font-family: var(--serif);
-    font-size: 1.05rem;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-  }
-  code { font-family: inherit; color: var(--brass); overflow-wrap: anywhere; }
-  .quote code { font-family: var(--mono); font-size: 0.86em; }
-  .where { margin: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-  .locs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-  .loc {
-    background: var(--inset);
-    border-radius: 8px;
-    padding: 4px 8px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .more, .pager {
     min-height: 44px;
     padding: 0 12px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
+    border: 0;
     background: transparent;
-    color: var(--muted);
+    color: var(--mute);
+    font-weight: 600;
   }
-  .more { margin-top: 8px; }
-  .pager { margin-top: 4px; }
-  .empty, .error, .loading {
-    border: 1px dashed var(--line);
-    border-radius: 12px;
-    padding: 18px;
-    color: var(--muted);
-  }
-  .error { border-style: solid; border-color: var(--accent); color: var(--accent-text); }
-  footer.colophon { margin-top: 28px; color: var(--muted); font-size: 12px; }
-  @media (max-width: 800px) {
-    .hero { grid-template-columns: 1fr; }
-    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .wrap { width: min(1120px, calc(100% - 24px)); }
-  }
-  @media (min-width: 960px) {
-    .split {
-      display: grid;
-      grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-      gap: 22px;
-      align-items: start;
-    }
-    .agents-col, .findings-col { order: 0; }
-    .findings-col {
-      position: sticky;
-      top: 12px;
-      max-height: calc(100vh - 24px);
-      overflow: auto;
-      padding-right: 4px;
-    }
-  }
-  .loading { position: relative; overflow: hidden; }
-  .loading::after {
-    content: "";
+  .tab[aria-pressed="true"] { color: var(--ink); }
+  .rule {
     position: absolute;
-    inset: 0 auto 0 0;
-    width: 42%;
-    background: linear-gradient(90deg, transparent, rgba(240, 208, 154, 0.45), transparent);
-    animation: sweep 1.05s cubic-bezier(.4,0,.2,1) infinite;
-  }
-  .enter .seal { animation: stamp 0.72s cubic-bezier(.16,1.15,.3,1) both; }
-  .enter .seal::after {
-    content: "";
-    position: absolute;
-    inset: -4px;
-    border-radius: inherit;
-    border: 2px solid rgba(228, 83, 58, 0.85);
-    animation: ring 0.78s ease-out 0.05s both;
+    left: 0;
+    bottom: -2px;
+    height: 3px;
+    background: var(--ink);
+    width: 0;
     pointer-events: none;
   }
-  .enter h1 { animation: clipin 0.7s cubic-bezier(.16,1,.3,1) 0.08s both; }
-  .enter .eyebrow, .enter .root, .enter .splitline { animation: clipin 0.6s cubic-bezier(.16,1,.3,1) both; }
-  .enter .splitline:nth-of-type(2) { animation-delay: 0.12s; }
-  .enter .bill strong { animation: bloom 0.9s cubic-bezier(.16,1,.3,1) both; }
-  .enter .stat { animation: print 0.7s cubic-bezier(.16,1.2,.3,1) both; animation-delay: calc(var(--i, 0) * 70ms + 120ms); }
-  .enter .share span { animation: grow 0.75s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 28ms + 200ms); }
-  .enter .share::after { animation: sheen 1.15s ease 0.45s both; }
-  .enter .agent { animation: print 0.78s cubic-bezier(.16,1.15,.3,1) both; animation-delay: calc(var(--i, 0) * 48ms + 220ms); }
-  .enter .finding { animation: print 0.7s cubic-bezier(.16,1.15,.3,1) both; animation-delay: calc(var(--i, 0) * 42ms + 180ms); }
-  .enter .file-card { animation: slip 0.55s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 36ms + 320ms); }
-  .flip-in { animation: print 0.5s cubic-bezier(.16,1.1,.3,1) both; }
-  .tearing { animation: tear 0.46s cubic-bezier(.5,0,.2,1) forwards; pointer-events: none; }
-  .restoring { animation: restore 0.4s cubic-bezier(.16,1,.3,1) forwards; pointer-events: none; }
-  body.scanning .rescan::after {
+  .finding {
+    padding: 12px 0;
+    border-bottom: 1px solid #c5cad3;
+  }
+  .finding-top { display: flex; justify-content: space-between; gap: 10px; }
+  .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .quote { margin: 6px 0; overflow-wrap: anywhere; }
+  .where { margin: 0; color: var(--mute); font-size: 13px; overflow-wrap: anywhere; }
+  .locs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .loc { background: var(--blue); padding: 4px 8px; font-family: var(--mono); font-size: 12px; }
+  .more, .pager {
+    min-height: 44px;
+    margin-top: 8px;
+    padding: 0 12px;
+    border: 2px solid var(--ink);
+    background: var(--card);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .more:active, .pager:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+  .empty, .error, .loading { padding: 16px 0; color: var(--mute); }
+  .error { color: var(--ink); background: var(--yellow); padding: 12px; border: 2px solid var(--ink); }
+  footer.colophon { margin-top: 28px; color: var(--mute); font-family: var(--mono); font-size: 12px; }
+  .striking::after {
     content: "";
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    margin-left: 8px;
-    border-radius: 50%;
-    background: var(--brass);
-    box-shadow: 0 0 10px var(--brass);
-    animation: blink 0.7s ease-in-out infinite;
-    vertical-align: 1px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 55%;
+    height: 2px;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: strike 0.32s linear forwards;
   }
-  @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  @keyframes scanline { 0% { top: 0; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { top: 100vh; opacity: 0; } }
-  @keyframes stamp {
-    0% { transform: scale(1.7) rotate(-16deg); opacity: 0; filter: blur(3px); }
-    58% { transform: scale(0.9) rotate(5deg); opacity: 1; filter: none; }
-    100% { transform: none; }
-  }
-  @keyframes ring { from { transform: scale(0.7); opacity: 0.9; } to { transform: scale(1.85); opacity: 0; } }
-  @keyframes clipin { from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateY(8px); } to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; } }
-  @keyframes bloom { from { opacity: 0; filter: blur(10px); transform: translateY(18px) scale(0.96); } to { opacity: 1; filter: none; transform: none; } }
-  @keyframes print {
-    0% { opacity: 0; transform: translateY(-18px) scaleY(0.82); filter: blur(5px); }
-    62% { opacity: 1; filter: none; transform: translateY(4px) scaleY(1.03); }
-    100% { opacity: 1; transform: none; filter: none; }
-  }
-  @keyframes slip { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+  .restoring { animation: lift 0.32s ease forwards; }
+  .enter h1 i { animation: maskin 0.55s cubic-bezier(.2,.7,.2,1) both; }
+  .enter h1 span:nth-child(2) i { animation-delay: 0.08s; }
+  .enter .slab { animation: slab 0.4s cubic-bezier(.2,.7,.2,1) 0.12s both; }
+  .enter .facts div { animation: rowin 0.35s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 50ms + 0.18s); }
+  .enter .row { animation: rowin 0.4s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 28ms); }
+  .enter .bar i { animation: grow 0.45s cubic-bezier(.2,.7,.2,1) both; }
+  .swap .finding { animation: rowin 0.28s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 18ms); }
+  @keyframes maskin { from { transform: translateY(110%); } to { transform: none; } }
+  @keyframes slab { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes rowin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  @keyframes sheen { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
-  @keyframes sweep { from { transform: translateX(-130%); } to { transform: translateX(340%); } }
-  @keyframes tear { to { opacity: 0; transform: translate(36px, -6px) rotate(3deg); filter: blur(2px); } }
-  @keyframes restore { to { opacity: 0; transform: translateY(-12px) scale(0.98); } }
-  @keyframes blink { 50% { opacity: 0.25; transform: scale(0.7); } }
+  @keyframes walk { to { transform: translateX(380%); } }
+  @keyframes strike { to { transform: scaleX(1); } }
+  @keyframes lift { to { opacity: 0; transform: translateY(-8px); } }
+  @media (max-width: 800px) {
+    .hero, .facts, .pick { grid-template-columns: 1fr; }
+    .facts div { border-right: 0; border-bottom: 2px solid var(--ink); padding: 12px 0; }
+    .facts div:last-child { border-bottom: 0; }
+    .wrap { width: min(1080px, calc(100% - 24px)); }
+    .slab { box-shadow: 4px 4px 0 var(--ink); }
+  }
+  @media (min-width: 960px) {
+    .split { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); align-items: start; }
+    .findings-col { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+  }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 </style>
 </head>
 <body>
-<div class="stripe"></div>
-<div class="head" aria-hidden="true"></div>
+<div class="topline" aria-hidden="true"></div>
 <div class="wrap" id="app">
-  <header class="top">
-    <div class="brand">
-      <div class="seal" aria-hidden="true">CT</div>
-      <div>
-        <p class="eyebrow">Preload duty</p>
-        <h1>contexttax</h1>
-        <p class="root">Reading instruction files…</p>
-      </div>
+  <header class="nav">
+    <div>
+      <p class="word">contexttax</p>
+      <p class="nav-meta">Reading the repo</p>
     </div>
   </header>
   <p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>
 </div>
-<noscript><p class="error">contexttax needs JavaScript to render the report.</p></noscript>
+<noscript><p class="error">contexttax needs JavaScript to draw this report.</p></noscript>
 <script>
 (function () {
   const KIND_LABEL = {
@@ -468,7 +325,6 @@
   let seenTokens = null;
   let seq = 0;
   const expanded = new Set();
-
   const app = document.getElementById("app");
   app.addEventListener("click", onClick);
 
@@ -498,6 +354,10 @@
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "";
     return d.toLocaleString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  }
+
+  function reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
   function agentSets() {
@@ -533,9 +393,7 @@
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       report = data;
-      if (agent !== "all" && !(report.agents || []).some(function (a) { return a.id === agent; })) {
-        agent = "all";
-      }
+      if (agent !== "all" && !(report.agents || []).some(function (a) { return a.id === agent; })) agent = "all";
       document.title = "contexttax · " + fmt(report.totals.tokens) + " tokens";
     } catch (err) {
       errorText = err && err.message ? err.message : "Could not load the report";
@@ -546,29 +404,18 @@
     }
   }
 
-  function reduceMotion() {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }
-
   function onClick(e) {
     const btn = e.target.closest("[data-action]");
     if (!btn || inflight || arming) return;
     const action = btn.dataset.action;
     if (action === "rescan") load();
-    if (action === "kind") {
-      kind = btn.dataset.kind;
-      limit = 12;
-      render();
-    }
+    if (action === "kind") { kind = btn.dataset.kind; limit = 12; render(); }
     if (action === "agent") {
       agent = agent === btn.dataset.id ? "all" : btn.dataset.id;
       limit = 12;
       render();
     }
-    if (action === "more") {
-      limit += 20;
-      render();
-    }
+    if (action === "more") { limit += 20; render(); }
     if (action === "expand") {
       const key = btn.dataset.key;
       if (expanded.has(key)) expanded.delete(key);
@@ -580,13 +427,13 @@
       const go = function () { arming = false; gate(action, btn.dataset.path); };
       if (card && !reduceMotion()) {
         arming = true;
-        card.classList.add(action === "hold" ? "tearing" : "restoring");
-        window.setTimeout(go, 420);
-      } else {
-        gate(action, btn.dataset.path);
-      }
+        card.classList.add(action === "hold" ? "striking" : "restoring");
+        window.setTimeout(go, 340);
+      } else go();
     }
   }
+
+  let errorText = "";
 
   async function gate(action, path) {
     if (inflight) return;
@@ -613,22 +460,23 @@
 
   function card(a, maxChars) {
     const over = (a.files || []).some(function (f) { return f.tokens > (report.tokenLimit || 2500); });
-    const width = maxChars ? Math.max(2, Math.round((a.chars / maxChars) * 100)) : 0;
+    const width = maxChars ? Math.max(4, Math.round((a.chars / maxChars) * 100)) : 0;
     const i = seq++;
-    const files = (a.files || []).map(function (f, n) {
-      return '<li class="file-card" style="--i:' + n + '"><code>' + esc(f.path) + "</code>" +
+    const n = String(i + 1).padStart(2, "0");
+    const files = (a.files || []).map(function (f) {
+      return '<li class="file-card"><code>' + esc(f.path) + "</code>" +
         '<p class="purpose">' + esc(f.purpose || "No description in the file") + "</p>" +
         '<p class="when">' + esc(f.when || "") + " · " + fmt(f.tokens) + " tokens · " + fmt(f.chars) + " characters</p>" +
-        '<button type="button" class="cut" data-action="hold" data-path="' + esc(f.path) + '">Cut off</button></li>';
+        '<button type="button" class="btn yellow small" data-action="hold" data-path="' + esc(f.path) + '">Cut off</button></li>';
     }).join("");
     return (
-      '<article class="agent' + (agent === a.id ? " picked" : "") + '" data-flip="agent:' + esc(a.id) + '" style="--i:' + i + '">' +
+      '<article class="row' + (agent === a.id ? " picked" : "") + '" style="--i:' + i + '">' +
         '<button type="button" class="pick" data-action="agent" data-id="' + esc(a.id) + '" aria-pressed="' + (agent === a.id) + '">' +
-        '<div class="agent-top"><span class="agent-name">' + esc(a.name) + "</span>" +
-        '<span class="tok' + (over ? " hot" : "") + '">' + fmt(a.tokens) + "</span></div>" +
-        '<div class="meta">' + esc(a.preload === "on-demand" ? "On demand" : "Always on") +
-        (over ? " · Over limit" : "") + "</div>" +
-        '<div class="bar' + (over ? " hot" : "") + '"><i style="width:' + width + '%"></i></div>' +
+          '<span class="idx">' + n + "</span>" +
+          '<span><span class="agent-name">' + esc(a.name) + "</span>" +
+          '<div class="meta">' + esc(a.preload === "on-demand" ? "On demand" : "Always on") + (over ? " · Over limit" : "") + "</div>" +
+          '<div class="bar' + (over ? " hot" : "") + '"><i style="width:' + width + '%"></i></div></span>' +
+          '<span class="tok' + (over ? " hot" : "") + '">' + fmt(a.tokens) + "</span>" +
         "</button>" +
         '<ul class="files">' + files + "</ul>" +
       "</article>"
@@ -640,20 +488,19 @@
     const open = expanded.has(key);
     const shown = open ? locs : locs.slice(0, 6);
     const items = shown.map(function (loc) {
-      return "<li class=\"loc\"><code>" + esc(loc.file) + "</code><span>" + esc((loc.lines || []).join(", ")) + "</span></li>";
+      return '<li class="loc"><code>' + esc(loc.file) + "</code> " + esc((loc.lines || []).join(", ")) + "</li>";
     }).join("");
     const extra = !open && locs.length > shown.length
       ? '<button type="button" class="more" data-action="expand" data-key="' + esc(key) + '">+' + (locs.length - shown.length) + " files</button>"
       : "";
-    return "<ul class=\"locs\">" + items + "</ul>" + extra;
+    return '<ul class="locs">' + items + "</ul>" + extra;
   }
 
   function findingView(f, index) {
     const label = KIND_LABEL[f.kind] || f.kind;
     let body = "";
     if (f.kind === "duplicate_line") {
-      const key = "dup:" + index;
-      body = '<p class="quote">' + esc(f.text) + "</p>" + locList(f, key);
+      body = '<p class="quote">' + esc(f.text) + "</p>" + locList(f, "dup:" + index);
     } else if (f.kind === "missing_path") {
       body = '<p class="quote"><code>' + esc(f.path) + "</code></p>" +
         '<p class="where">Referenced from <code>' + esc(f.file) + "</code>" + (f.line ? " line " + f.line : "") + "</p>";
@@ -668,7 +515,7 @@
     }
     const meta = f.kind === "duplicate_line" ? (f.count || (f.files || []).length) + " files" : "";
     return (
-      '<article class="finding" data-kind="' + esc(f.kind) + '" data-flip="' + esc(flipId(f)) + '" style="--i:' + index + '">' +
+      '<article class="finding" style="--i:' + index + '">' +
         '<div class="finding-top"><span class="k">' + esc(label) + "</span>" +
         (meta ? '<span class="meta">' + esc(meta) + "</span>" : "") + "</div>" +
         body +
@@ -676,25 +523,14 @@
     );
   }
 
-  function flipId(f) {
-    return [f.kind, f.file, f.line, f.path, f.script, f.count, f.text].join("|").slice(0, 180);
-  }
-
-  function snapshot() {
-    const map = new Map();
-    app.querySelectorAll("[data-flip]").forEach(function (el) {
-      map.set(el.dataset.flip, el.getBoundingClientRect());
-    });
-    return map;
-  }
-
   function render() {
     if (!report) {
       app.innerHTML =
-        '<header class="top"><div class="brand"><div class="seal" aria-hidden="true">CT</div><div>' +
-        '<p class="eyebrow">Preload duty</p><h1>contexttax</h1>' +
-        '<p class="root">' + (inflight ? "Reading instruction files…" : "Waiting") + "</p></div></div></header>" +
-        (errorText ? '<p class="error">' + esc(errorText) + '</p><button type="button" class="rescan" data-action="rescan">Retry</button>' : '<p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>');
+        '<header class="nav"><div><p class="word">contexttax</p><p class="nav-meta">' +
+        (inflight ? "Reading the repo" : "Waiting") + "</p></div></header>" +
+        (errorText
+          ? '<p class="error">' + esc(errorText) + '</p><button type="button" class="btn ink" data-action="rescan">Retry</button>'
+          : '<p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>');
       return;
     }
 
@@ -712,20 +548,21 @@
     const oversizedAll = findings.filter(function (f) { return f.kind === "oversized_file"; }).length;
     let maxChars = 1;
     agents.forEach(function (a) { if (a.chars > maxChars) maxChars = a.chars; });
-
     const t = report.totals || {};
-    const sumTokens = agents.reduce(function (n, a) { return n + (a.tokens || 0); }, 0);
-    const roundNote = sumTokens !== t.tokens
-      ? '<p class="note">Row totals round down per agent. The headline divides every character once.</p>'
-      : "";
-    const share = agents.length
-      ? '<div class="share" role="img" aria-label="Share of characters by agent">' +
-        agents.map(function (a, i) { return '<span style="flex:' + Math.max(a.chars, 1) + ' 1 0;--i:' + i + '"></span>'; }).join("") +
-        "</div>"
-      : "";
+    const scanKey = report.scannedAt || "";
+    const enter = scanKey !== seenScan;
+    const prevTotal = seenTokens;
+    seenScan = scanKey;
+    seenTokens = t.tokens || 0;
+    seq = 0;
+    const ruleFrom = (function () {
+      const rule = app.querySelector(".rule");
+      if (!rule || !rule.style.width) return null;
+      return { width: rule.style.width, transform: rule.style.transform };
+    })();
 
-    const chips = '<span class="pill" aria-hidden="true"></span>' + CHIPS.map(function (c) {
-      return '<button type="button" class="chip" data-action="kind" data-kind="' + c[0] + '" aria-pressed="' + (kind === c[0]) + '">' +
+    const tabs = '<i class="rule" aria-hidden="true"></i>' + CHIPS.map(function (c) {
+      return '<button type="button" class="tab" data-action="kind" data-kind="' + c[0] + '" aria-pressed="' + (kind === c[0]) + '">' +
         esc(c[1]) + " " + fmt(counts[c[0]] || 0) + "</button>";
     }).join("");
 
@@ -736,176 +573,104 @@
     const empty = agents.length === 0
       ? ((report.held || []).length
         ? '<p class="empty">Every instruction file is cut off.</p>'
-        : '<p class="empty">No agent context files. contexttax looks for CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>')
-      : (shown.length === 0 ? '<p class="empty">No findings in this view.</p>' : list + more);
+        : '<p class="empty">No instruction files. This looks for CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>')
+      : (shown.length === 0 ? '<p class="empty">Nothing in this filter.</p>' : list + more);
 
-    function group(title, hint, rows) {
+    function group(title, rows) {
       if (!rows.length) return "";
       return '<p class="group-label">' + esc(title) + "</p>" +
-        (hint ? '<p class="hint">' + esc(hint) + "</p>" : "") +
-        '<div class="agents">' + rows.map(function (a) { return card(a, maxChars); }).join("") + "</div>";
+        rows.map(function (a) { return card(a, maxChars); }).join("");
     }
 
-    const banner = errorText ? '<p class="error">' + esc(errorText) + "</p>" : "";
-    const scanKey = report.scannedAt || "";
-    const enter = scanKey !== seenScan;
-    const prevTotal = seenTokens;
-    seenScan = scanKey;
-    seenTokens = t.tokens || 0;
-    seq = 0;
-    const prevFlip = enter ? null : snapshot();
-    const pillFrom = enter ? null : pillNow();
-    app.classList.toggle("enter", enter);
-    const splitLine = (t.onDemandTokens || always.length)
-      ? '<p class="splitline">' + fmt(t.alwaysTokens) + " always on · " + fmt(t.onDemandTokens) + " if every skill is loaded</p>"
-      : "";
-    const heldLine = (t.heldTokens || 0)
-      ? '<p class="splitline">' + fmt(t.heldTokens) + " tokens cut off until you allow them</p>"
-      : "";
     const heldRows = (report.held || []).map(function (h) {
       return '<article class="finding"><div class="finding-top"><span class="k">Cut off</span><span class="tok">' + fmt(h.tokens) + "</span></div>" +
         '<p class="quote"><code>' + esc(h.path) + "</code></p>" +
         '<p class="purpose">' + esc(h.purpose || "") + "</p>" +
         '<p class="where">' + esc(h.when || "") + " · " + fmt(h.chars) + " characters</p>" +
-        '<button type="button" class="cut" data-action="release" data-path="' + esc(h.path) + '">Allow again</button></article>';
+        '<button type="button" class="btn small" data-action="release" data-path="' + esc(h.path) + '">Allow again</button></article>';
     }).join("");
-    const heldBlock = heldRows
-      ? '<section><h2>Cut off</h2><p class="hint">Parked in .contexttax/held, so agents looking for CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, or SKILL.md will not load them. They come back only when you allow them. Pasting the parked path into a chat can still open that copy.</p>' + heldRows + "</section>"
-      : "";
 
+    app.classList.toggle("enter", enter);
+    app.classList.toggle("swap", !enter);
     app.innerHTML =
-      '<header class="top"><div class="brand"><div class="seal" aria-hidden="true">CT</div><div>' +
-        '<p class="eyebrow">Preload duty</p><h1>contexttax</h1>' +
-        '<p class="root">' + esc(report.root) + (report.scannedAt ? " · scanned " + esc(when(report.scannedAt)) : "") + "</p>" +
-      "</div></div>" +
-      '<button type="button" class="rescan" data-action="rescan"' + (inflight ? " disabled" : "") + ">" +
+      '<header class="nav"><div><p class="word">contexttax</p>' +
+        '<p class="nav-meta">' + (inflight ? "Reading the repo" : "Local scan") + "</p></div>" +
+        '<button type="button" class="btn ink" data-action="rescan"' + (inflight ? " disabled" : "") + ">" +
         (inflight ? "Scanning" : "Rescan") + "</button></header>" +
-      banner +
-      '<section class="hero"><div class="bill"><em>Estimated tokens</em><strong class="count">' + (enter ? "0" : fmt(t.tokens)) + "</strong>" +
-        splitLine +
-        heldLine +
-        '<p class="splitline">from ' + fmt(t.chars) + " characters · ÷ 4 · not a model tokenizer</p></div>" +
-        '<div class="stats">' +
-          stat(t.files, "Files", false, 0) +
-          stat(t.agents, "Agents", false, 1) +
-          stat(t.findings, "Findings", t.findings > 0, 2) +
-          stat(oversizedAll, "Oversized", oversizedAll > 0, 3) +
-        "</div></section>" +
-      share + roundNote +
-      '<div class="split"><section class="agents-col"><h2>Per agent</h2>' +
-        '<p class="hint">Always-on files are the session tax. Skills are billed only if pulled into context.</p>' +
-        group("Always on", "Loaded every session. The line under each file is what it says it is for.", always) +
-        group("Skills", "Loaded only when that skill is used. Cut off parks the file until you allow it.", skills) +
+      (errorText ? '<p class="error">' + esc(errorText) + "</p>" : "") +
+      '<section class="hero"><div class="hero-copy">' +
+        '<p class="kicker">Preload</p>' +
+        '<h1><span><i>What your agents</i></span><span><i>preload.</i></span></h1>' +
+        '<p class="lede">A count of CLAUDE.md, AGENTS.md, Cursor rules, and skills. The number is characters divided by 4. It is the cost of loading the file, not one live chat.</p>' +
+        '<div class="actions"><button type="button" class="btn" data-action="kind" data-kind="oversized_file">Show oversized</button></div>' +
+      "</div>" +
+      '<div class="slab"><p class="kicker">Estimated tokens</p><strong class="count">' + (enter ? "0" : fmt(t.tokens)) + "</strong>" +
+        '<p class="fine">' + fmt(t.alwaysTokens) + " always on · " + fmt(t.onDemandTokens) + " if every skill loads" +
+        ((t.heldTokens || 0) ? " · " + fmt(t.heldTokens) + " cut off" : "") + "</p></div></section>" +
+      '<dl class="facts">' +
+        fact(t.files, "Files", 0) + fact(t.agents, "Agents", 1) +
+        fact(t.findings, "Findings", 2, t.findings > 0) +
+        fact(oversizedAll, "Oversized", 3, oversizedAll > 0) +
+      "</dl>" +
+      '<p class="pathline">' + esc(report.root) + (report.scannedAt ? " · " + esc(when(report.scannedAt)) : "") + "</p>" +
+      '<div class="split"><section><h2>The bill</h2>' +
+        '<p class="hint">Always-on files are in context before the task. A skill is paid only when it is loaded. Cut off moves the file so agents stop finding it.</p>' +
+        group("Always on", always) +
+        group("Skills", skills) +
         (agents.length ? "" : '<p class="empty">Nothing to bill.</p>') +
-        heldBlock +
-      "</section><section class=\"findings-col\"><h2>Findings</h2>" +
-        '<p class="hint">Duplicated lines, paths that do not resolve, npm scripts missing from the nearest package.json, and any file over ' + fmt(report.tokenLimit || 2500) + " tokens.</p>" +
-        '<div class="chips" role="toolbar">' + chips + "</div>" +
+        (heldRows ? '<h2 style="margin-top:22px">Cut off</h2><p class="hint">Parked in .contexttax/held. They stay out until you allow them. Pasting the parked path into a chat can still open the copy.</p>' + heldRows : "") +
+      '</section><section class="findings-col"><h2>Findings</h2>' +
+        '<p class="hint">Repeated lines, paths that do not exist, npm scripts missing from package.json, and any file over ' + fmt(report.tokenLimit || 2500) + " tokens.</p>" +
+        '<div class="tabs" role="toolbar">' + tabs + "</div>" +
         empty +
       "</section></div>" +
-      '<footer class="colophon">contexttax · estimated tokens = characters ÷ 4 · not a tokenizer</footer>';
-    if (enter) playEnter(t.tokens || 0);
-    else {
-      playFlip(prevFlip);
-      if (prevTotal != null && prevTotal !== (t.tokens || 0)) spring(app.querySelector(".bill .count"), prevTotal, t.tokens || 0, 0);
-    }
-    placePill(enter, pillFrom);
+      '<footer class="colophon">contexttax</footer>';
+
+    if (enter) tick(app.querySelector(".count"), 0, t.tokens || 0);
+    else if (prevTotal != null && prevTotal !== (t.tokens || 0)) tick(app.querySelector(".count"), prevTotal, t.tokens || 0);
+    placeRule(ruleFrom);
   }
 
-  function pillNow() {
-    const pill = app.querySelector(".pill");
-    if (!pill) return null;
-    return { width: pill.style.width, height: pill.style.height, transform: pill.style.transform };
+  function fact(n, label, i, warn) {
+    return '<div style="--i:' + i + '"><dt>' + esc(label) + '</dt><dd class="' + (warn ? "warn" : "") + '">' + fmt(n) + "</dd></div>";
   }
 
-  function playEnter(total) {
-    app.querySelectorAll(".stat .count").forEach(function (el) {
-      if (!reduceMotion()) el.textContent = "0";
-    });
-    const hero = app.querySelector(".bill .count");
-    spring(hero, 0, total, 40);
-    app.querySelectorAll(".stat .count").forEach(function (el, i) {
-      spring(el, 0, Number(el.dataset.n || 0), 140 + i * 70);
-    });
-  }
-
-  function spring(el, from, to, delay) {
+  function tick(el, from, to) {
     if (!el) return;
-    if (reduceMotion()) {
-      el.textContent = fmt(to);
-      return;
-    }
-    const start = performance.now() + (delay || 0);
+    if (reduceMotion()) { el.textContent = fmt(to); return; }
+    const start = performance.now();
     function frame(now) {
-      const t = (now - start) / 1000;
-      if (t < 0) {
-        requestAnimationFrame(frame);
-        return;
-      }
-      const settled = t > 1.05;
-      const x = settled ? 1 : 1 - Math.exp(-5.4 * t) * Math.cos(9.2 * t);
-      el.textContent = fmt(Math.round(from + (to - from) * x));
-      if (!settled) requestAnimationFrame(frame);
-      else el.textContent = fmt(to);
+      const p = Math.min(1, (now - start) / 520);
+      const v = Math.round(from + (to - from) * p);
+      el.textContent = fmt(v);
+      if (p < 1) requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   }
 
-  function playFlip(prev) {
-    if (!prev || reduceMotion()) return;
-    app.querySelectorAll("[data-flip]").forEach(function (el) {
-      const first = prev.get(el.dataset.flip);
-      if (!first) {
-        el.classList.add("flip-in");
-        return;
-      }
-      const last = el.getBoundingClientRect();
-      const dx = first.left - last.left;
-      const dy = first.top - last.top;
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-      el.animate(
-        [{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }],
-        { duration: 480, easing: "cubic-bezier(.2,.8,.2,1)" }
-      );
-    });
-  }
-
-  function placePill(instant, from) {
-    const bar = app.querySelector(".chips");
-    const pill = bar && bar.querySelector(".pill");
+  function placeRule(from) {
+    const bar = app.querySelector(".tabs");
+    const rule = bar && bar.querySelector(".rule");
     const on = bar && bar.querySelector('[aria-pressed="true"]');
-    if (!pill || !on) return;
+    if (!rule || !on) return;
     const b = bar.getBoundingClientRect();
     const r = on.getBoundingClientRect();
-    const next = {
-      width: r.width + "px",
-      height: r.height + "px",
-      transform: "translate(" + (r.left - b.left) + "px," + (r.top - b.top) + "px)"
-    };
-    if (from && from.transform && !instant && !reduceMotion()) {
-      pill.classList.add("on");
-      pill.style.transition = "none";
-      pill.style.width = from.width;
-      pill.style.height = from.height;
-      pill.style.transform = from.transform;
+    const next = { width: r.width + "px", transform: "translateX(" + (r.left - b.left) + "px)" };
+    if (from && !reduceMotion()) {
+      rule.style.transition = "none";
+      rule.style.width = from.width;
+      rule.style.transform = from.transform;
       requestAnimationFrame(function () {
-        pill.style.transition = "";
+        rule.style.transition = "transform .28s cubic-bezier(.2,.7,.2,1), width .28s cubic-bezier(.2,.7,.2,1)";
         requestAnimationFrame(function () {
-          pill.style.width = next.width;
-          pill.style.height = next.height;
-          pill.style.transform = next.transform;
+          rule.style.width = next.width;
+          rule.style.transform = next.transform;
         });
       });
       return;
     }
-    pill.style.width = next.width;
-    pill.style.height = next.height;
-    pill.style.transform = next.transform;
-    pill.classList.add("on");
-  }
-
-  function stat(n, label, warn, i) {
-    return '<div class="stat' + (warn ? " warn" : "") + '" style="--i:' + i + '"><b class="count" data-n="' + (n || 0) + '">' + fmt(n) + "</b><span>" + esc(label) + "</span></div>";
+    rule.style.width = next.width;
+    rule.style.transform = next.transform;
   }
 
   load();
