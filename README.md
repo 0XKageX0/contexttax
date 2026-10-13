@@ -61,15 +61,26 @@ Claude, Agents, and Cursor are **always-on**: that cost is in context before the
 
 A line repeated only inside one file is not a duplicate. URLs, globs, and `@/` import aliases are not treated as missing files.
 
+Each file on the dashboard also shows where it lives, when that agent loads it, and a purpose line taken from its own `description` or first heading. Tokens stay an estimate: characters divided by 4, not a model tokenizer. This is the cost of preloading the file, not a meter of one live chat.
+
+## Cutting a file off
+
+**Cut off** moves that instruction file into `.contexttax/held` and remembers the original path. Claude, Cursor, and other agents load `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, and `SKILL.md` by those names, so they no longer pick the file up. **Allow again** puts the same bytes back.
+
+This is a permission you give from the dashboard. It is not a sandbox. If you paste the parked path into a chat, the agent can still open that copy. Commit `.contexttax/held` if the cutoff should stay off for everyone who clones the repo.
+
 ## API
 
 `GET /api/report` returns JSON:
 
-- `agents` — id, name, kind (`claude`, `agents`, `cursor`, `skill`), `preload` (`always` or `on-demand`), characters, tokens, and files
-- `totals` — file and agent counts, plus always-on, on-demand, and combined characters and tokens
+- `agents` — id, name, kind (`claude`, `agents`, `cursor`, `skill`), `preload` (`always` or `on-demand`), characters, tokens, and files. Each file has `path`, `purpose`, `when`, `chars`, and `tokens`
+- `held` — files parked by Cut off, with the same fields plus `heldAt`
+- `totals` — file and agent counts, plus always-on, on-demand, held, and combined characters and tokens
 - `findings` — kind, message, and the locations that produced it
 - `tokenLimit` — currently `2500`
 - `scannedAt` — time of that request
+
+`POST /api/hold` and `POST /api/release` take `{"path":"skills/review/SKILL.md"}` and return the new report.
 
 ## Development
 

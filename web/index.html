@@ -172,7 +172,7 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
-  .agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+  .agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 10px; }
   .agent {
     text-align: left;
     width: 100%;
@@ -180,10 +180,17 @@
     border: 1px solid var(--line);
     border-radius: 14px;
     padding: 12px 14px;
+  }
+  .agent.picked { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+  .pick {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 0;
     min-height: 44px;
   }
-  .agent:hover { border-color: #6a5a45; }
-  .agent[aria-pressed="true"] { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
   .agent-top, .file-row, .finding-top, .loc {
     display: flex;
     justify-content: space-between;
@@ -194,15 +201,28 @@
   .tok { color: var(--brass); font-variant-numeric: tabular-nums; }
   .tok.hot { color: var(--accent-text); }
   .meta { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-  .files { list-style: none; margin: 8px 0 0; padding: 0; }
-  .files li {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
+  .files { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+  .file-card {
+    display: block;
+    margin: 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
     color: var(--muted);
     font-size: 12px;
     overflow-wrap: anywhere;
   }
+  .purpose { margin: 4px 0 0; color: var(--fg); font-size: 13px; }
+  .when { margin: 2px 0 0; color: var(--muted); font-size: 11px; letter-spacing: 0.04em; text-transform: none; }
+  .cut {
+    min-height: 44px;
+    margin-top: 8px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent-text);
+  }
+  .cut:hover { background: #2a1612; }
   .bar { height: 4px; border-radius: 99px; background: var(--inset); margin-top: 10px; overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--brass-deep); }
   .bar.hot i { background: var(--accent); }
@@ -434,23 +454,51 @@
       else expanded.add(key);
       render();
     }
+    if (action === "hold" || action === "release") gate(action, btn.dataset.path);
+  }
+
+  async function gate(action, path) {
+    if (inflight) return;
+    inflight = true;
+    errorText = "";
+    render();
+    try {
+      const res = await fetch(action === "hold" ? "/api/hold" : "/api/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: path })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data && data.error) || "Could not update that file");
+      report = data;
+    } catch (err) {
+      errorText = err && err.message ? err.message : "Could not update that file";
+    } finally {
+      inflight = false;
+      render();
+    }
   }
 
   function card(a, maxChars) {
     const over = (a.files || []).some(function (f) { return f.tokens > (report.tokenLimit || 2500); });
     const width = maxChars ? Math.max(2, Math.round((a.chars / maxChars) * 100)) : 0;
     const files = (a.files || []).map(function (f) {
-      return "<li><span>" + esc(f.path) + "</span><span>" + fmt(f.tokens) + "</span></li>";
+      return '<li class="file-card"><code>' + esc(f.path) + "</code>" +
+        '<p class="purpose">' + esc(f.purpose || "No description in the file") + "</p>" +
+        '<p class="when">' + esc(f.when || "") + " · " + fmt(f.tokens) + " tokens · " + fmt(f.chars) + " characters</p>" +
+        '<button type="button" class="cut" data-action="hold" data-path="' + esc(f.path) + '">Cut off</button></li>';
     }).join("");
     return (
-      '<button type="button" class="agent" data-action="agent" data-id="' + esc(a.id) + '" aria-pressed="' + (agent === a.id) + '">' +
+      '<article class="agent' + (agent === a.id ? " picked" : "") + '">' +
+        '<button type="button" class="pick" data-action="agent" data-id="' + esc(a.id) + '" aria-pressed="' + (agent === a.id) + '">' +
         '<div class="agent-top"><span class="agent-name">' + esc(a.name) + "</span>" +
         '<span class="tok' + (over ? " hot" : "") + '">' + fmt(a.tokens) + "</span></div>" +
         '<div class="meta">' + esc(a.preload === "on-demand" ? "On demand" : "Always on") +
         (over ? " · Over limit" : "") + "</div>" +
-        '<ul class="files">' + files + "</ul>" +
         '<div class="bar' + (over ? " hot" : "") + '"><i style="width:' + width + '%"></i></div>' +
-      "</button>"
+        "</button>" +
+        '<ul class="files">' + files + "</ul>" +
+      "</article>"
     );
   }
 
@@ -541,7 +589,9 @@
       ? '<button type="button" class="pager" data-action="more">Show ' + fmt(Math.min(20, shown.length - limit)) + " more</button>"
       : "";
     const empty = agents.length === 0
-      ? '<p class="empty">No agent context files. contexttax looks for CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>'
+      ? ((report.held || []).length
+        ? '<p class="empty">Every instruction file is cut off.</p>'
+        : '<p class="empty">No agent context files. contexttax looks for CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>')
       : (shown.length === 0 ? '<p class="empty">No findings in this view.</p>' : list + more);
 
     function group(title, hint, rows) {
@@ -555,6 +605,19 @@
     const splitLine = (t.onDemandTokens || always.length)
       ? '<p class="splitline">' + fmt(t.alwaysTokens) + " always on · " + fmt(t.onDemandTokens) + " if every skill is loaded</p>"
       : "";
+    const heldLine = (t.heldTokens || 0)
+      ? '<p class="splitline">' + fmt(t.heldTokens) + " tokens cut off until you allow them</p>"
+      : "";
+    const heldRows = (report.held || []).map(function (h) {
+      return '<article class="finding"><div class="finding-top"><span class="k">Cut off</span><span class="tok">' + fmt(h.tokens) + "</span></div>" +
+        '<p class="quote"><code>' + esc(h.path) + "</code></p>" +
+        '<p class="purpose">' + esc(h.purpose || "") + "</p>" +
+        '<p class="where">' + esc(h.when || "") + " · " + fmt(h.chars) + " characters</p>" +
+        '<button type="button" class="cut" data-action="release" data-path="' + esc(h.path) + '">Allow again</button></article>';
+    }).join("");
+    const heldBlock = heldRows
+      ? '<section><h2>Cut off</h2><p class="hint">Parked in .contexttax/held, so agents looking for CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, or SKILL.md will not load them. They come back only when you allow them. Pasting the parked path into a chat can still open that copy.</p>' + heldRows + "</section>"
+      : "";
 
     app.innerHTML =
       '<header class="top"><div class="brand"><div class="seal" aria-hidden="true">CT</div><div>' +
@@ -566,7 +629,8 @@
       banner +
       '<section class="hero"><div class="bill"><em>Estimated tokens</em><strong>' + fmt(t.tokens) + "</strong>" +
         splitLine +
-        '<p class="splitline">from ' + fmt(t.chars) + " characters · ÷ 4</p></div>" +
+        heldLine +
+        '<p class="splitline">from ' + fmt(t.chars) + " characters · ÷ 4 · not a model tokenizer</p></div>" +
         '<div class="stats">' +
           stat(t.files, "Files") +
           stat(t.agents, "Agents") +
@@ -576,9 +640,10 @@
       share + roundNote +
       '<div class="split"><section class="agents-col"><h2>Per agent</h2>' +
         '<p class="hint">Always-on files are the session tax. Skills are billed only if pulled into context.</p>' +
-        group("Always on", "", always) +
-        group("Skills", "On demand. Tokens are the cost when that skill is read.", skills) +
+        group("Always on", "Loaded every session. The line under each file is what it says it is for.", always) +
+        group("Skills", "Loaded only when that skill is used. Cut off parks the file until you allow it.", skills) +
         (agents.length ? "" : '<p class="empty">Nothing to bill.</p>') +
+        heldBlock +
       "</section><section class=\"findings-col\"><h2>Findings</h2>" +
         '<p class="hint">Duplicated lines, paths that do not resolve, npm scripts missing from the nearest package.json, and any file over ' + fmt(report.tokenLimit || 2500) + " tokens.</p>" +
         '<div class="chips" role="toolbar">' + chips + "</div>" +

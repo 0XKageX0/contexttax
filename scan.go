@@ -31,6 +31,7 @@ var skipDirNames = map[string]struct{}{
 	".turbo":       {},
 	".cache":       {},
 	".tools":       {},
+	".contexttax":  {},
 }
 
 var knownExt = map[string]struct{}{
@@ -69,6 +70,7 @@ type Report struct {
 	Agents     []Agent   `json:"agents"`
 	Totals     Totals    `json:"totals"`
 	Findings   []Finding `json:"findings"`
+	Held       []Held    `json:"held"`
 }
 
 // Agent is one preload audience: Claude, Agents, Cursor, or a single skill.
@@ -84,9 +86,25 @@ type Agent struct {
 
 // FileStat is one scanned instruction file.
 type FileStat struct {
-	Path   string `json:"path"`
-	Chars  int    `json:"chars"`
-	Tokens int    `json:"tokens"`
+	Path    string `json:"path"`
+	Chars   int    `json:"chars"`
+	Tokens  int    `json:"tokens"`
+	Purpose string `json:"purpose"`
+	When    string `json:"when"`
+}
+
+// Held is an instruction file parked out of the paths agents load.
+// It stays out until the user allows it back.
+type Held struct {
+	Path    string    `json:"path"`
+	Kind    string    `json:"kind"`
+	Name    string    `json:"name"`
+	Preload string    `json:"preload"`
+	Purpose string    `json:"purpose"`
+	When    string    `json:"when"`
+	Chars   int       `json:"chars"`
+	Tokens  int       `json:"tokens"`
+	HeldAt  time.Time `json:"heldAt"`
 }
 
 // Totals roll the whole scan up. Tokens are floor(chars/4) on the combined
@@ -101,6 +119,9 @@ type Totals struct {
 	OnDemandChars  int `json:"onDemandChars"`
 	OnDemandTokens int `json:"onDemandTokens"`
 	Findings       int `json:"findings"`
+	HeldFiles      int `json:"heldFiles"`
+	HeldChars      int `json:"heldChars"`
+	HeldTokens     int `json:"heldTokens"`
 }
 
 // Finding is one duplicated line, missing path, missing npm script, or oversized file.
@@ -133,6 +154,8 @@ type sourceFile struct {
 	AgentID   string
 	AgentName string
 	Preload   string
+	Purpose   string
+	When      string
 	Body      string
 	Lines     []string
 	Chars     int
@@ -167,6 +190,7 @@ func Scan(root string) (Report, error) {
 		TokenLimit: oversizedTokenLimit,
 		Agents:     []Agent{},
 		Findings:   []Finding{},
+		Held:       []Held{},
 	}
 	rep.Agents = buildAgents(sources)
 	s := &scanner{root: abs, cache: map[string]scriptSet{}}
@@ -190,6 +214,12 @@ func Scan(root string) (Report, error) {
 	rep.Totals.AlwaysTokens = rep.Totals.AlwaysChars / 4
 	rep.Totals.OnDemandTokens = rep.Totals.OnDemandChars / 4
 	rep.Totals.Findings = len(rep.Findings)
+	rep.Held = loadHeld(abs)
+	for _, h := range rep.Held {
+		rep.Totals.HeldFiles++
+		rep.Totals.HeldChars += h.Chars
+	}
+	rep.Totals.HeldTokens = rep.Totals.HeldChars / 4
 	return rep, nil
 }
 
@@ -248,6 +278,8 @@ func collectSources(root string) ([]sourceFile, error) {
 			AgentID:   id,
 			AgentName: name,
 			Preload:   preload,
+			Purpose:   purposeOf(body),
+			When:      whenFor(preload),
 			Body:      body,
 			Lines:     strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n"),
 			Chars:     chars,
@@ -285,6 +317,53 @@ func classify(rel string) (kind, id, name, preload string, ok bool) {
 	return "", "", "", "", false
 }
 
+func whenFor(preload string) string {
+	if preload == "on-demand" {
+		return "Only when this skill is loaded"
+	}
+	return "Every session, before the task starts"
+}
+
+func purposeOf(body string) string {
+	text := strings.ReplaceAll(body, "\r\n", "\n")
+	lines := strings.Split(text, "\n")
+	if len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
+		for _, line := range lines[1:] {
+			if strings.TrimSpace(line) == "---" {
+				break
+			}
+			if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "description:"); ok {
+				return clipPurpose(strings.Trim(strings.TrimSpace(rest), `"'`))
+			}
+		}
+	}
+	for _, line := range lines {
+		s := strings.TrimSpace(line)
+		if strings.HasPrefix(s, "#") {
+			return clipPurpose(strings.TrimSpace(strings.TrimLeft(s, "#")))
+		}
+	}
+	for _, line := range lines {
+		s := strings.TrimSpace(line)
+		if s != "" && s != "---" {
+			return clipPurpose(s)
+		}
+	}
+	return "No description in the file"
+}
+
+func clipPurpose(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if s == "" {
+		return "No description in the file"
+	}
+	r := []rune(s)
+	if len(r) > 140 {
+		return string(r[:139]) + "…"
+	}
+	return s
+}
+
 func buildAgents(sources []sourceFile) []Agent {
 	order := []string{}
 	byID := map[string]*Agent{}
@@ -302,7 +381,13 @@ func buildAgents(sources []sourceFile) []Agent {
 			order = append(order, src.AgentID)
 		}
 		a.Chars += src.Chars
-		a.Files = append(a.Files, FileStat{Path: src.Rel, Chars: src.Chars, Tokens: src.Tokens})
+		a.Files = append(a.Files, FileStat{
+			Path:    src.Rel,
+			Chars:   src.Chars,
+			Tokens:  src.Tokens,
+			Purpose: src.Purpose,
+			When:    src.When,
+		})
 	}
 	agents := make([]Agent, 0, len(order))
 	for _, id := range order {
