@@ -5,22 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light">
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem("contexttax-theme");
+    if (t !== "dark" && t !== "light") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+    document.querySelector('meta[name="color-scheme"]').content = t;
+  } catch (e) {}
+})();
+</script>
 <title>contexttax</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2312151c'/%3E%3Crect x='6' y='14' width='20' height='8' fill='%23ffe14a'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
+  :root, [data-theme="light"] {
     --ink: #12151c;
     --paper: #f3f5f8;
     --card: #ffffff;
-    --line: #12151c;
     --mute: #5c6472;
     --yellow: #ffe14a;
     --blue: #d7e4ff;
+    --on-ink: #f4f6fb;
+    --hair: #c5cad3;
+    --track: #e6e9ef;
     --sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  [data-theme="dark"] {
+    --ink: #f2efe4;
+    --paper: #14161c;
+    --card: #1c1f27;
+    --mute: #a8aebb;
+    --yellow: #ffe14a;
+    --blue: #243049;
+    --on-ink: #14161c;
+    --hair: #3c4352;
+    --track: #2a2e38;
   }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -78,8 +101,22 @@
     letter-spacing: -0.045em;
     line-height: 0.92;
   }
+  h1 span:nth-child(2) { position: relative; }
+  h1 span:nth-child(2)::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0.08em;
+    width: 7.15ch;
+    height: 0.14em;
+    background: var(--yellow);
+    transform: scaleX(0);
+    transform-origin: left center;
+    z-index: -1;
+  }
   h1 span { display: block; overflow: hidden; }
-  h1 i { display: block; font-style: normal; }
+  h1 i { display: block; font-style: normal; position: relative; z-index: 1; }
+  h1 span:nth-child(2)::after { z-index: 0; }
   .kicker {
     margin: 0;
     font-family: var(--mono);
@@ -100,7 +137,33 @@
     font-weight: 600;
     letter-spacing: -0.01em;
   }
-  .btn.ink { background: var(--ink); color: #f4f6fb; }
+  .btn.ink { background: var(--ink); color: var(--on-ink); }
+  .btn.yellow, .slab, .tok.hot, .facts dd.warn { color: #12151c; }
+  .nav-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .theme {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-width: 132px;
+    min-height: 44px;
+    padding: 0;
+    border: 2px solid var(--ink);
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .theme i {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 4px);
+    background: var(--yellow);
+    transition: transform 0.32s cubic-bezier(.2,.7,.2,1);
+  }
+  [data-theme="dark"] .theme i { transform: translateX(calc(100% + 2px)); }
+  .theme span { position: relative; z-index: 1; display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+  [data-theme="dark"] .theme span:last-child { color: #12151c; }
+  .theme:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
   .btn.yellow { background: var(--yellow); }
   .btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
   .btn:disabled { opacity: 0.55; cursor: wait; }
@@ -194,11 +257,11 @@
   .tok.hot { background: var(--yellow); padding: 0 4px; }
   .meta { color: var(--mute); font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
   .files { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
-  .file-card { border-top: 1px solid #c5cad3; padding-top: 8px; position: relative; }
+  .file-card { border-top: 1px solid var(--hair); padding-top: 8px; position: relative; }
   .purpose { margin: 4px 0 0; }
   .when { margin: 2px 0 0; color: var(--mute); font-family: var(--mono); font-size: 12px; }
   code { font-family: var(--mono); font-size: 0.92em; overflow-wrap: anywhere; }
-  .bar { height: 8px; margin-top: 8px; background: #e6e9ef; border: 2px solid var(--ink); }
+  .bar { height: 8px; margin-top: 8px; background: var(--track); border: 2px solid var(--ink); }
   .bar i { display: block; height: 100%; background: var(--ink); transform-origin: left center; }
   .bar.hot i { background: var(--ink); }
   .tabs { display: flex; flex-wrap: wrap; gap: 4px 0; position: relative; margin: 0 0 8px; border-bottom: 2px solid var(--ink); }
@@ -224,7 +287,7 @@
   }
   .finding {
     padding: 12px 0;
-    border-bottom: 1px solid #c5cad3;
+    border-bottom: 1px solid var(--hair);
   }
   .finding-top { display: flex; justify-content: space-between; gap: 10px; }
   .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -242,8 +305,30 @@
   }
   .more:active, .pager:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
   .empty, .error, .loading { padding: 16px 0; color: var(--mute); }
-  .error { color: var(--ink); background: var(--yellow); padding: 12px; border: 2px solid var(--ink); }
+  .error { color: #12151c; background: var(--yellow); padding: 12px; border: 2px solid var(--ink); }
   footer.colophon { margin-top: 28px; color: var(--mute); font-family: var(--mono); font-size: 12px; }
+  .row { position: relative; }
+  .row.picked::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 4px;
+    background: var(--ink);
+    transform-origin: top center;
+    animation: growY 0.28s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .wipe {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--yellow);
+    pointer-events: none;
+    transform: scaleX(0);
+    transform-origin: right center;
+  }
+  .wipe.go { animation: wipe 0.72s cubic-bezier(.65,0,.35,1) forwards; }
   .striking::after {
     content: "";
     position: absolute;
@@ -259,7 +344,8 @@
   .restoring { animation: lift 0.32s ease forwards; }
   .enter h1 i { animation: maskin 0.55s cubic-bezier(.2,.7,.2,1) both; }
   .enter h1 span:nth-child(2) i { animation-delay: 0.08s; }
-  .enter .slab { animation: slab 0.4s cubic-bezier(.2,.7,.2,1) 0.12s both; }
+  .enter h1 span:nth-child(2)::after { animation: grow 0.4s cubic-bezier(.2,.7,.2,1) 0.42s both; }
+  .enter .slab { animation: slab 0.4s cubic-bezier(.2,.7,.2,1) 0.12s both, land 0.4s ease 0.32s both; }
   .enter .facts div { animation: rowin 0.35s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 50ms + 0.18s); }
   .enter .row { animation: rowin 0.4s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 28ms); }
   .enter .bar i { animation: grow 0.45s cubic-bezier(.2,.7,.2,1) both; }
@@ -268,6 +354,14 @@
   @keyframes slab { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   @keyframes rowin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes land { from { box-shadow: 0 0 0 var(--ink); } to { box-shadow: 6px 6px 0 var(--ink); } }
+  @keyframes growY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @keyframes wipe {
+    0% { transform: scaleX(0); transform-origin: right center; }
+    46% { transform: scaleX(1); transform-origin: right center; }
+    54% { transform: scaleX(1); transform-origin: left center; }
+    100% { transform: scaleX(0); transform-origin: left center; }
+  }
   @keyframes walk { to { transform: translateX(380%); } }
   @keyframes strike { to { transform: scaleX(1); } }
   @keyframes lift { to { opacity: 0; transform: translateY(-8px); } }
@@ -289,6 +383,7 @@
 </head>
 <body>
 <div class="topline" aria-hidden="true"></div>
+<div class="wipe" aria-hidden="true"></div>
 <div class="wrap" id="app">
   <header class="nav">
     <div>
@@ -324,6 +419,8 @@
   let seenScan = "";
   let seenTokens = null;
   let seq = 0;
+  let errorText = "";
+  let reveal = false;
   const expanded = new Set();
   const app = document.getElementById("app");
   app.addEventListener("click", onClick);
@@ -409,6 +506,7 @@
     if (!btn || inflight || arming) return;
     const action = btn.dataset.action;
     if (action === "rescan") load();
+    if (action === "theme") { flipTheme(); return; }
     if (action === "kind") { kind = btn.dataset.kind; limit = 12; render(); }
     if (action === "agent") {
       agent = agent === btn.dataset.id ? "all" : btn.dataset.id;
@@ -433,7 +531,34 @@
     }
   }
 
-  let errorText = "";
+  function themeBtn() {
+    const dark = document.documentElement.dataset.theme === "dark";
+    return '<button type="button" class="theme" data-action="theme" aria-pressed="' + dark + '" aria-label="' +
+      (dark ? "Use light theme" : "Use dark theme") + '"><i></i><span>Light</span><span>Dark</span></button>';
+  }
+
+  function setTheme(next) {
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("contexttax-theme", next); } catch (err) {}
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) meta.content = next;
+  }
+
+  function flipTheme() {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    const wipe = document.querySelector(".wipe");
+    if (!wipe || wipe.classList.contains("go") || reduceMotion()) {
+      setTheme(next);
+      render();
+      return;
+    }
+    wipe.classList.add("go");
+    window.setTimeout(function () { setTheme(next); render(); }, 300);
+    wipe.addEventListener("animationend", function done() {
+      wipe.classList.remove("go");
+      wipe.removeEventListener("animationend", done);
+    });
+  }
 
   async function gate(action, path) {
     if (inflight) return;
@@ -527,7 +652,8 @@
     if (!report) {
       app.innerHTML =
         '<header class="nav"><div><p class="word">contexttax</p><p class="nav-meta">' +
-        (inflight ? "Reading the repo" : "Waiting") + "</p></div></header>" +
+        (inflight ? "Reading the repo" : "Waiting") + "</p></div>" +
+        '<div class="nav-actions">' + themeBtn() + "</div></header>" +
         (errorText
           ? '<p class="error">' + esc(errorText) + '</p><button type="button" class="btn ink" data-action="rescan">Retry</button>'
           : '<p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>');
@@ -551,6 +677,7 @@
     const t = report.totals || {};
     const scanKey = report.scannedAt || "";
     const enter = scanKey !== seenScan;
+    reveal = enter;
     const prevTotal = seenTokens;
     seenScan = scanKey;
     seenTokens = t.tokens || 0;
@@ -595,8 +722,9 @@
     app.innerHTML =
       '<header class="nav"><div><p class="word">contexttax</p>' +
         '<p class="nav-meta">' + (inflight ? "Reading the repo" : "Local scan") + "</p></div>" +
+        '<div class="nav-actions">' + themeBtn() +
         '<button type="button" class="btn ink" data-action="rescan"' + (inflight ? " disabled" : "") + ">" +
-        (inflight ? "Scanning" : "Rescan") + "</button></header>" +
+        (inflight ? "Scanning" : "Rescan") + "</button></div></header>" +
       (errorText ? '<p class="error">' + esc(errorText) + "</p>" : "") +
       '<section class="hero"><div class="hero-copy">' +
         '<p class="kicker">Preload</p>' +
@@ -626,13 +754,18 @@
       "</section></div>" +
       '<footer class="colophon">contexttax</footer>';
 
-    if (enter) tick(app.querySelector(".count"), 0, t.tokens || 0);
-    else if (prevTotal != null && prevTotal !== (t.tokens || 0)) tick(app.querySelector(".count"), prevTotal, t.tokens || 0);
+    if (enter) {
+      tick(app.querySelector(".count"), 0, t.tokens || 0);
+      app.querySelectorAll(".n").forEach(function (el, i) {
+        window.setTimeout(function () { tick(el, 0, Number(el.dataset.n || 0)); }, 90 + i * 70);
+      });
+    } else if (prevTotal != null && prevTotal !== (t.tokens || 0)) tick(app.querySelector(".count"), prevTotal, t.tokens || 0);
     placeRule(ruleFrom);
   }
 
   function fact(n, label, i, warn) {
-    return '<div style="--i:' + i + '"><dt>' + esc(label) + '</dt><dd class="' + (warn ? "warn" : "") + '">' + fmt(n) + "</dd></div>";
+    const show = reveal ? "0" : fmt(n);
+    return '<div style="--i:' + i + '"><dt>' + esc(label) + '</dt><dd class="n' + (warn ? " warn" : "") + '" data-n="' + (n || 0) + '">' + show + "</dd></div>";
   }
 
   function tick(el, from, to) {
