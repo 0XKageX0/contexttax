@@ -1,0 +1,8 @@
+# Built binaries. The source of truth is this repository.
+/contexttax
+/bin/
+*.exe
+*.test
+*.out
+
+.DS_Store

@@ -1,0 +1,8 @@
+{
+  "name": "fixture-repo",
+  "private": true,
+  "scripts": {
+    "test": "echo test",
+    "build": "echo build"
+  }
+}

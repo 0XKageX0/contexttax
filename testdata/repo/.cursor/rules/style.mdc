@@ -1,0 +1,8 @@
+---
+description: style
+---
+
+Always prefer the existing test harness before adding a new one.
+
+Run npm run typecheck after edits.
+Ignore this file `not a path`.

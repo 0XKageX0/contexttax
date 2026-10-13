@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="dark">
+<title>contexttax</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314110e'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23e4533a'/%3E%3Ctext x='16' y='20' text-anchor='middle' font-family='Georgia' font-size='11' fill='%23fff8f3'%3ECT%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14110e;
+    --card: #221c16;
+    --inset: #0e0c0a;
+    --line: #3f362c;
+    --fg: #f6f1e7;
+    --muted: #cfc0ad;
+    --brass: #f0d09a;
+    --brass-deep: #c4923e;
+    --accent: #e4533a;
+    --accent-text: #ffb4a8;
+    --serif: "Fraunces", "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  ::selection { background: #e4533a; color: #fff8f3; }
+  :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .stripe { height: 4px; background: var(--accent); }
+  .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 64px; }
+  header.top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 20px;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
+  .seal {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--accent);
+    color: #fff8f3;
+    font-family: var(--serif);
+    font-weight: 640;
+    letter-spacing: 0.02em;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 640;
+    font-size: 2rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    margin: 0;
+  }
+  .eyebrow {
+    margin: 0 0 4px;
+    color: var(--accent-text);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .root {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  .rescan {
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--brass-deep);
+    background: transparent;
+    color: var(--brass);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 12px;
+  }
+  .rescan:hover { background: #2a2416; }
+  .rescan:disabled { opacity: 0.55; cursor: wait; }
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    gap: 22px 28px;
+    align-items: end;
+    margin-bottom: 22px;
+  }
+  .bill { margin: 0; }
+  .bill strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 640;
+    font-size: clamp(3.1rem, 8vw, 6.2rem);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    color: var(--brass);
+  }
+  .bill em { font-style: normal; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .splitline { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    min-width: 0;
+  }
+  .stat b {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 560;
+    font-size: 1.55rem;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .stat span {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .stat.warn b { color: var(--accent-text); }
+  .share {
+    display: flex;
+    height: 8px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: var(--inset);
+    margin: 14px 0 0;
+  }
+  .share span { display: block; height: 100%; min-width: 2px; }
+  .share span:nth-child(4n+1) { background: #f0d09a; }
+  .share span:nth-child(4n+2) { background: #a8843e; }
+  .share span:nth-child(4n+3) { background: #8a4a32; }
+  .share span:nth-child(4n+4) { background: #5c4a2e; }
+  .note { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+  .split { display: flex; flex-direction: column; gap: 22px; }
+  .agents-col { order: 2; }
+  .findings-col { order: 1; }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 560;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    margin: 0 0 4px;
+  }
+  .hint { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+  .group-label {
+    margin: 16px 0 8px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+  .agent {
+    text-align: left;
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    min-height: 44px;
+  }
+  .agent:hover { border-color: #6a5a45; }
+  .agent[aria-pressed="true"] { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+  .agent-top, .file-row, .finding-top, .loc {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .agent-name { font-family: var(--serif); font-size: 1.15rem; letter-spacing: -0.02em; }
+  .tok { color: var(--brass); font-variant-numeric: tabular-nums; }
+  .tok.hot { color: var(--accent-text); }
+  .meta { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .files { list-style: none; margin: 8px 0 0; padding: 0; }
+  .files li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  .bar { height: 4px; border-radius: 99px; background: var(--inset); margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--brass-deep); }
+  .bar.hot i { background: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .chip {
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+  }
+  .chip[aria-pressed="true"] { border-color: var(--brass-deep); color: var(--brass); background: #2a2416; }
+  .finding {
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin: 0 0 8px;
+    background: var(--card);
+  }
+  .finding[data-kind="duplicate_line"] { border-left-color: var(--brass-deep); }
+  .finding[data-kind="missing_path"],
+  .finding[data-kind="missing_script"],
+  .finding[data-kind="oversized_file"] { border-left-color: var(--accent); }
+  .k { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brass); }
+  .finding[data-kind="missing_path"] .k,
+  .finding[data-kind="missing_script"] .k,
+  .finding[data-kind="oversized_file"] .k { color: var(--accent-text); }
+  .quote {
+    margin: 8px 0;
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  code { font-family: inherit; color: var(--brass); overflow-wrap: anywhere; }
+  .quote code { font-family: var(--mono); font-size: 0.86em; }
+  .where { margin: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+  .locs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .loc {
+    background: var(--inset);
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .more, .pager {
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+  }
+  .more { margin-top: 8px; }
+  .pager { margin-top: 4px; }
+  .empty, .error, .loading {
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    color: var(--muted);
+  }
+  .error { border-style: solid; border-color: var(--accent); color: var(--accent-text); }
+  footer.colophon { margin-top: 28px; color: var(--muted); font-size: 12px; }
+  @media (max-width: 800px) {
+    .hero { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .wrap { width: min(1120px, calc(100% - 24px)); }
+  }
+  @media (min-width: 960px) {
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+      gap: 22px;
+      align-items: start;
+    }
+    .agents-col, .findings-col { order: 0; }
+    .findings-col {
+      position: sticky;
+      top: 12px;
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<div class="wrap" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="seal" aria-hidden="true">CT</div>
+      <div>
+        <p class="eyebrow">Preload duty</p>
+        <h1>contexttax</h1>
+        <p class="root">Reading instruction files…</p>
+      </div>
+    </div>
+  </header>
+  <p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>
+</div>
+<noscript><p class="error">contexttax needs JavaScript to render the report.</p></noscript>
+<script>
+(function () {
+  const KIND_LABEL = {
+    duplicate_line: "Duplicated line",
+    missing_path: "Missing path",
+    missing_script: "Missing script",
+    oversized_file: "Oversized file"
+  };
+  const CHIPS = [
+    ["all", "All"],
+    ["duplicate_line", "Duplicates"],
+    ["missing_path", "Missing paths"],
+    ["missing_script", "Scripts"],
+    ["oversized_file", "Oversized"]
+  ];
+
+  let report = null;
+  let kind = "all";
+  let agent = "all";
+  let limit = 12;
+  let inflight = false;
+  let errorText = "";
+  const expanded = new Set();
+
+  const app = document.getElementById("app");
+  app.addEventListener("click", onClick);
+
+  function reportURL() {
+    const path = window.location.pathname || "/";
+    const base = path.endsWith("/") ? path : path.replace(/\/[^/]*$/, "/");
+    return base + "api/report";
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      switch (c) {
+        case "&": return "\u0026amp;";
+        case "<": return "\u0026lt;";
+        case ">": return "\u0026gt;";
+        case '"': return "\u0026quot;";
+        default: return "\u0026#39;";
+      }
+    });
+  }
+
+  function fmt(n) {
+    return new Intl.NumberFormat("en-US").format(n || 0);
+  }
+
+  function when(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  }
+
+  function agentSets() {
+    const map = new Map();
+    (report.agents || []).forEach(function (a) {
+      map.set(a.id, new Set((a.files || []).map(function (f) { return f.path; })));
+    });
+    return map;
+  }
+
+  function touches(f, id, sets) {
+    const files = sets.get(id);
+    if (!files) return false;
+    if (f.file && files.has(f.file)) return true;
+    for (const p of f.files || []) if (files.has(p)) return true;
+    for (const loc of f.locations || []) if (files.has(loc.file)) return true;
+    return false;
+  }
+
+  function inAgent(f, sets) {
+    return agent === "all" || touches(f, agent, sets);
+  }
+
+  async function load() {
+    if (inflight) return;
+    inflight = true;
+    errorText = "";
+    render();
+    try {
+      const res = await fetch(reportURL(), { cache: "no-store" });
+      if (!res.ok) throw new Error("Report failed (" + res.status + ")");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      report = data;
+      if (agent !== "all" && !(report.agents || []).some(function (a) { return a.id === agent; })) {
+        agent = "all";
+      }
+      document.title = "contexttax · " + fmt(report.totals.tokens) + " tokens";
+    } catch (err) {
+      errorText = err && err.message ? err.message : "Could not load the report";
+    } finally {
+      inflight = false;
+      render();
+    }
+  }
+
+  function onClick(e) {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === "rescan") load();
+    if (action === "kind") {
+      kind = btn.dataset.kind;
+      limit = 12;
+      render();
+    }
+    if (action === "agent") {
+      agent = agent === btn.dataset.id ? "all" : btn.dataset.id;
+      limit = 12;
+      render();
+    }
+    if (action === "more") {
+      limit += 20;
+      render();
+    }
+    if (action === "expand") {
+      const key = btn.dataset.key;
+      if (expanded.has(key)) expanded.delete(key);
+      else expanded.add(key);
+      render();
+    }
+  }
+
+  function card(a, maxChars) {
+    const over = (a.files || []).some(function (f) { return f.tokens > (report.tokenLimit || 2500); });
+    const width = maxChars ? Math.max(2, Math.round((a.chars / maxChars) * 100)) : 0;
+    const files = (a.files || []).map(function (f) {
+      return "<li><span>" + esc(f.path) + "</span><span>" + fmt(f.tokens) + "</span></li>";
+    }).join("");
+    return (
+      '<button type="button" class="agent" data-action="agent" data-id="' + esc(a.id) + '" aria-pressed="' + (agent === a.id) + '">' +
+        '<div class="agent-top"><span class="agent-name">' + esc(a.name) + "</span>" +
+        '<span class="tok' + (over ? " hot" : "") + '">' + fmt(a.tokens) + "</span></div>" +
+        '<div class="meta">' + esc(a.preload === "on-demand" ? "On demand" : "Always on") +
+        (over ? " · Over limit" : "") + "</div>" +
+        '<ul class="files">' + files + "</ul>" +
+        '<div class="bar' + (over ? " hot" : "") + '"><i style="width:' + width + '%"></i></div>' +
+      "</button>"
+    );
+  }
+
+  function locList(f, key) {
+    const locs = f.locations || [];
+    const open = expanded.has(key);
+    const shown = open ? locs : locs.slice(0, 6);
+    const items = shown.map(function (loc) {
+      return "<li class=\"loc\"><code>" + esc(loc.file) + "</code><span>" + esc((loc.lines || []).join(", ")) + "</span></li>";
+    }).join("");
+    const extra = !open && locs.length > shown.length
+      ? '<button type="button" class="more" data-action="expand" data-key="' + esc(key) + '">+' + (locs.length - shown.length) + " files</button>"
+      : "";
+    return "<ul class=\"locs\">" + items + "</ul>" + extra;
+  }
+
+  function findingView(f, index) {
+    const label = KIND_LABEL[f.kind] || f.kind;
+    let body = "";
+    if (f.kind === "duplicate_line") {
+      const key = "dup:" + index;
+      body = '<p class="quote">' + esc(f.text) + "</p>" + locList(f, key);
+    } else if (f.kind === "missing_path") {
+      body = '<p class="quote"><code>' + esc(f.path) + "</code></p>" +
+        '<p class="where">Referenced from <code>' + esc(f.file) + "</code>" + (f.line ? " line " + f.line : "") + "</p>";
+    } else if (f.kind === "missing_script") {
+      body = '<p class="quote">npm run <code>' + esc(f.script) + "</code></p>" +
+        '<p class="where">' + esc(f.message) + " · <code>" + esc(f.file) + "</code>" + (f.line ? " line " + f.line : "") + "</p>";
+    } else if (f.kind === "oversized_file") {
+      body = '<p class="quote"><code>' + esc(f.file) + "</code></p>" +
+        '<p class="where">' + fmt(f.tokens) + " tokens · limit " + fmt(report.tokenLimit || 2500) + " · " + fmt(f.chars) + " characters</p>";
+    } else {
+      body = '<p class="where">' + esc(f.message) + "</p>";
+    }
+    const meta = f.kind === "duplicate_line" ? (f.count || (f.files || []).length) + " files" : "";
+    return (
+      '<article class="finding" data-kind="' + esc(f.kind) + '">' +
+        '<div class="finding-top"><span class="k">' + esc(label) + "</span>" +
+        (meta ? '<span class="meta">' + esc(meta) + "</span>" : "") + "</div>" +
+        body +
+      "</article>"
+    );
+  }
+
+  function render() {
+    if (!report) {
+      app.innerHTML =
+        '<header class="top"><div class="brand"><div class="seal" aria-hidden="true">CT</div><div>' +
+        '<p class="eyebrow">Preload duty</p><h1>contexttax</h1>' +
+        '<p class="root">' + (inflight ? "Reading instruction files…" : "Waiting") + "</p></div></div></header>" +
+        (errorText ? '<p class="error">' + esc(errorText) + '</p><button type="button" class="rescan" data-action="rescan">Retry</button>' : '<p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>');
+      return;
+    }
+
+    const sets = agentSets();
+    const agents = report.agents || [];
+    const findings = report.findings || [];
+    const universe = findings.filter(function (f) { return inAgent(f, sets); });
+    const shown = universe.filter(function (f) { return kind === "all" || f.kind === kind; });
+    const counts = { all: universe.length };
+    CHIPS.forEach(function (c) { if (c[0] !== "all") counts[c[0]] = 0; });
+    universe.forEach(function (f) { counts[f.kind] = (counts[f.kind] || 0) + 1; });
+
+    const always = agents.filter(function (a) { return a.preload !== "on-demand"; });
+    const skills = agents.filter(function (a) { return a.preload === "on-demand"; });
+    const oversizedAll = findings.filter(function (f) { return f.kind === "oversized_file"; }).length;
+    let maxChars = 1;
+    agents.forEach(function (a) { if (a.chars > maxChars) maxChars = a.chars; });
+
+    const t = report.totals || {};
+    const sumTokens = agents.reduce(function (n, a) { return n + (a.tokens || 0); }, 0);
+    const roundNote = sumTokens !== t.tokens
+      ? '<p class="note">Row totals round down per agent. The headline divides every character once.</p>'
+      : "";
+    const share = agents.length
+      ? '<div class="share" role="img" aria-label="Share of characters by agent">' +
+        agents.map(function (a) { return '<span style="flex:' + Math.max(a.chars, 1) + ' 1 0"></span>'; }).join("") +
+        "</div>"
+      : "";
+
+    const chips = CHIPS.map(function (c) {
+      return '<button type="button" class="chip" data-action="kind" data-kind="' + c[0] + '" aria-pressed="' + (kind === c[0]) + '">' +
+        esc(c[1]) + " " + fmt(counts[c[0]] || 0) + "</button>";
+    }).join("");
+
+    const list = shown.slice(0, limit).map(findingView).join("");
+    const more = shown.length > limit
+      ? '<button type="button" class="pager" data-action="more">Show ' + fmt(Math.min(20, shown.length - limit)) + " more</button>"
+      : "";
+    const empty = agents.length === 0
+      ? '<p class="empty">No agent context files. contexttax looks for CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>'
+      : (shown.length === 0 ? '<p class="empty">No findings in this view.</p>' : list + more);
+
+    function group(title, hint, rows) {
+      if (!rows.length) return "";
+      return '<p class="group-label">' + esc(title) + "</p>" +
+        (hint ? '<p class="hint">' + esc(hint) + "</p>" : "") +
+        '<div class="agents">' + rows.map(function (a) { return card(a, maxChars); }).join("") + "</div>";
+    }
+
+    const banner = errorText ? '<p class="error">' + esc(errorText) + "</p>" : "";
+    const splitLine = (t.onDemandTokens || always.length)
+      ? '<p class="splitline">' + fmt(t.alwaysTokens) + " always on · " + fmt(t.onDemandTokens) + " if every skill is loaded</p>"
+      : "";
+
+    app.innerHTML =
+      '<header class="top"><div class="brand"><div class="seal" aria-hidden="true">CT</div><div>' +
+        '<p class="eyebrow">Preload duty</p><h1>contexttax</h1>' +
+        '<p class="root">' + esc(report.root) + (report.scannedAt ? " · scanned " + esc(when(report.scannedAt)) : "") + "</p>" +
+      "</div></div>" +
+      '<button type="button" class="rescan" data-action="rescan"' + (inflight ? " disabled" : "") + ">" +
+        (inflight ? "Scanning" : "Rescan") + "</button></header>" +
+      banner +
+      '<section class="hero"><div class="bill"><em>Estimated tokens</em><strong>' + fmt(t.tokens) + "</strong>" +
+        splitLine +
+        '<p class="splitline">from ' + fmt(t.chars) + " characters · ÷ 4</p></div>" +
+        '<div class="stats">' +
+          stat(t.files, "Files") +
+          stat(t.agents, "Agents") +
+          stat(t.findings, "Findings", t.findings > 0) +
+          stat(oversizedAll, "Oversized", oversizedAll > 0) +
+        "</div></section>" +
+      share + roundNote +
+      '<div class="split"><section class="agents-col"><h2>Per agent</h2>' +
+        '<p class="hint">Always-on files are the session tax. Skills are billed only if pulled into context.</p>' +
+        group("Always on", "", always) +
+        group("Skills", "On demand. Tokens are the cost when that skill is read.", skills) +
+        (agents.length ? "" : '<p class="empty">Nothing to bill.</p>') +
+      "</section><section class=\"findings-col\"><h2>Findings</h2>" +
+        '<p class="hint">Duplicated lines, paths that do not resolve, npm scripts missing from the nearest package.json, and any file over ' + fmt(report.tokenLimit || 2500) + " tokens.</p>" +
+        '<div class="chips" role="toolbar">' + chips + "</div>" +
+        empty +
+      "</section></div>" +
+      '<footer class="colophon">contexttax · estimated tokens = characters ÷ 4 · not a tokenizer</footer>';
+  }
+
+  function stat(n, label, warn) {
+    return '<div class="stat' + (warn ? " warn" : "") + '"><b>' + fmt(n) + "</b><span>" + esc(label) + "</span></div>";
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
