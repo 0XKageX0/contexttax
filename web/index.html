@@ -41,8 +41,20 @@
   ::selection { background: #e4533a; color: #fff8f3; }
   :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
   button { font: inherit; color: inherit; cursor: pointer; }
-  .stripe { height: 3px; background: linear-gradient(90deg, var(--accent), var(--brass)); transform-origin: left; animation: draw 0.7s cubic-bezier(.2,.7,.2,1) both; }
-  .seal { animation: pop 0.55s cubic-bezier(.2,.8,.2,1) both; }
+  .stripe { height: 3px; background: linear-gradient(90deg, var(--accent), var(--brass)); transform-origin: left; animation: draw 0.8s cubic-bezier(.16,1,.3,1) both; }
+  .head {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    z-index: 30;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(90deg, transparent, var(--brass), var(--accent), transparent);
+    box-shadow: 0 0 22px var(--accent);
+  }
+  body.scanning .head { opacity: 1; animation: scanline 1.15s cubic-bezier(.45,0,.2,1) infinite; }
   .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 64px; }
   header.top {
     display: flex;
@@ -65,6 +77,7 @@
     font-family: var(--serif);
     font-weight: 640;
     letter-spacing: 0.02em;
+    position: relative;
   }
   h1 {
     font-family: var(--serif);
@@ -117,6 +130,7 @@
     line-height: 0.9;
     letter-spacing: -0.04em;
     color: var(--brass);
+    font-variant-numeric: tabular-nums;
   }
   .bill em { font-style: normal; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
   .splitline { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
@@ -146,15 +160,16 @@
     text-transform: uppercase;
   }
   .stat.warn b { color: var(--accent-text); }
-  .share {
-    display: flex;
-    height: 8px;
-    border-radius: 99px;
-    overflow: hidden;
-    background: var(--inset);
-    margin: 14px 0 0;
+  .share { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--inset); margin: 14px 0 0; position: relative; }
+  .share span { display: block; height: 100%; min-width: 2px; transform-origin: left center; }
+  .share::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255, 248, 236, 0.72), transparent 70%);
+    transform: translateX(-120%);
+    pointer-events: none;
   }
-  .share span { display: block; height: 100%; min-width: 2px; }
   .share span:nth-child(4n+1) { background: #f0d09a; }
   .share span:nth-child(4n+2) { background: #a8843e; }
   .share span:nth-child(4n+3) { background: #8a4a32; }
@@ -238,7 +253,22 @@
   .bar i { display: block; height: 100%; background: var(--brass-deep); transform-origin: left center; }
   .enter .bar i { animation: grow 0.8s cubic-bezier(.2,.7,.2,1) both; }
   .bar.hot i { background: var(--accent); }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; position: relative; }
+  .pill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border-radius: 999px;
+    background: #2a2416;
+    border: 1px solid var(--brass-deep);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+  }
+  .pill.on {
+    opacity: 1;
+    transition: transform 0.48s cubic-bezier(.2,.85,.2,1), width 0.48s cubic-bezier(.2,.85,.2,1), height 0.48s cubic-bezier(.2,.85,.2,1);
+  }
   .chip {
     min-height: 44px;
     padding: 0 12px;
@@ -246,8 +276,11 @@
     border: 1px solid var(--line);
     background: transparent;
     color: var(--muted);
+    position: relative;
+    z-index: 1;
+    background: transparent;
   }
-  .chip[aria-pressed="true"] { border-color: var(--brass-deep); color: var(--brass); background: #2a2416; }
+  .chip[aria-pressed="true"] { border-color: transparent; color: var(--brass); background: transparent; }
   .finding {
     border: 1px solid var(--line);
     border-left-width: 3px;
@@ -325,28 +358,68 @@
   .loading::after {
     content: "";
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 38%;
-    background: linear-gradient(90deg, transparent, rgba(240, 208, 154, 0.28), transparent);
-    animation: sweep 1.15s ease-in-out infinite;
+    inset: 0 auto 0 0;
+    width: 42%;
+    background: linear-gradient(90deg, transparent, rgba(240, 208, 154, 0.45), transparent);
+    animation: sweep 1.05s cubic-bezier(.4,0,.2,1) infinite;
   }
-  .enter .stat, .enter .agent, .enter .finding, .enter .share {
-    animation: rise 0.55s cubic-bezier(.2,.7,.2,1) both;
+  .enter .seal { animation: stamp 0.72s cubic-bezier(.16,1.15,.3,1) both; }
+  .enter .seal::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    border: 2px solid rgba(228, 83, 58, 0.85);
+    animation: ring 0.78s ease-out 0.05s both;
+    pointer-events: none;
   }
-  .enter .stat:nth-child(2) { animation-delay: 0.05s; }
-  .enter .stat:nth-child(3) { animation-delay: 0.1s; }
-  .enter .stat:nth-child(4) { animation-delay: 0.15s; }
-  .enter .agent:nth-child(2), .enter .finding:nth-child(2) { animation-delay: 0.04s; }
-  .enter .agent:nth-child(3), .enter .finding:nth-child(3) { animation-delay: 0.08s; }
-  .enter .agent:nth-child(4), .enter .finding:nth-child(4) { animation-delay: 0.12s; }
-  .enter .agent:nth-child(n + 5), .enter .finding:nth-child(n + 5) { animation-delay: 0.16s; }
+  .enter h1 { animation: clipin 0.7s cubic-bezier(.16,1,.3,1) 0.08s both; }
+  .enter .eyebrow, .enter .root, .enter .splitline { animation: clipin 0.6s cubic-bezier(.16,1,.3,1) both; }
+  .enter .splitline:nth-of-type(2) { animation-delay: 0.12s; }
+  .enter .bill strong { animation: bloom 0.9s cubic-bezier(.16,1,.3,1) both; }
+  .enter .stat { animation: print 0.7s cubic-bezier(.16,1.2,.3,1) both; animation-delay: calc(var(--i, 0) * 70ms + 120ms); }
+  .enter .share span { animation: grow 0.75s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 28ms + 200ms); }
+  .enter .share::after { animation: sheen 1.15s ease 0.45s both; }
+  .enter .agent { animation: print 0.78s cubic-bezier(.16,1.15,.3,1) both; animation-delay: calc(var(--i, 0) * 48ms + 220ms); }
+  .enter .finding { animation: print 0.7s cubic-bezier(.16,1.15,.3,1) both; animation-delay: calc(var(--i, 0) * 42ms + 180ms); }
+  .enter .file-card { animation: slip 0.55s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 36ms + 320ms); }
+  .flip-in { animation: print 0.5s cubic-bezier(.16,1.1,.3,1) both; }
+  .tearing { animation: tear 0.46s cubic-bezier(.5,0,.2,1) forwards; pointer-events: none; }
+  .restoring { animation: restore 0.4s cubic-bezier(.16,1,.3,1) forwards; pointer-events: none; }
+  body.scanning .rescan::after {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-left: 8px;
+    border-radius: 50%;
+    background: var(--brass);
+    box-shadow: 0 0 10px var(--brass);
+    animation: blink 0.7s ease-in-out infinite;
+    vertical-align: 1px;
+  }
   @keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  @keyframes pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes scanline { 0% { top: 0; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { top: 100vh; opacity: 0; } }
+  @keyframes stamp {
+    0% { transform: scale(1.7) rotate(-16deg); opacity: 0; filter: blur(3px); }
+    58% { transform: scale(0.9) rotate(5deg); opacity: 1; filter: none; }
+    100% { transform: none; }
+  }
+  @keyframes ring { from { transform: scale(0.7); opacity: 0.9; } to { transform: scale(1.85); opacity: 0; } }
+  @keyframes clipin { from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateY(8px); } to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; } }
+  @keyframes bloom { from { opacity: 0; filter: blur(10px); transform: translateY(18px) scale(0.96); } to { opacity: 1; filter: none; transform: none; } }
+  @keyframes print {
+    0% { opacity: 0; transform: translateY(-18px) scaleY(0.82); filter: blur(5px); }
+    62% { opacity: 1; filter: none; transform: translateY(4px) scaleY(1.03); }
+    100% { opacity: 1; transform: none; filter: none; }
+  }
+  @keyframes slip { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
   @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  @keyframes sweep { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+  @keyframes sheen { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
+  @keyframes sweep { from { transform: translateX(-130%); } to { transform: translateX(340%); } }
+  @keyframes tear { to { opacity: 0; transform: translate(36px, -6px) rotate(3deg); filter: blur(2px); } }
+  @keyframes restore { to { opacity: 0; transform: translateY(-12px) scale(0.98); } }
+  @keyframes blink { 50% { opacity: 0.25; transform: scale(0.7); } }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
@@ -354,6 +427,7 @@
 </head>
 <body>
 <div class="stripe"></div>
+<div class="head" aria-hidden="true"></div>
 <div class="wrap" id="app">
   <header class="top">
     <div class="brand">
@@ -389,7 +463,10 @@
   let agent = "all";
   let limit = 12;
   let inflight = false;
+  let arming = false;
   let seenScan = "";
+  let seenTokens = null;
+  let seq = 0;
   const expanded = new Set();
 
   const app = document.getElementById("app");
@@ -448,6 +525,7 @@
     if (inflight) return;
     inflight = true;
     errorText = "";
+    document.body.classList.add("scanning");
     render();
     try {
       const res = await fetch(reportURL(), { cache: "no-store" });
@@ -463,13 +541,18 @@
       errorText = err && err.message ? err.message : "Could not load the report";
     } finally {
       inflight = false;
+      document.body.classList.remove("scanning");
       render();
     }
   }
 
+  function reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
   function onClick(e) {
     const btn = e.target.closest("[data-action]");
-    if (!btn) return;
+    if (!btn || inflight || arming) return;
     const action = btn.dataset.action;
     if (action === "rescan") load();
     if (action === "kind") {
@@ -492,14 +575,24 @@
       else expanded.add(key);
       render();
     }
-    if (action === "hold" || action === "release") gate(action, btn.dataset.path);
+    if (action === "hold" || action === "release") {
+      const card = btn.closest(".file-card, .finding");
+      const go = function () { arming = false; gate(action, btn.dataset.path); };
+      if (card && !reduceMotion()) {
+        arming = true;
+        card.classList.add(action === "hold" ? "tearing" : "restoring");
+        window.setTimeout(go, 420);
+      } else {
+        gate(action, btn.dataset.path);
+      }
+    }
   }
 
   async function gate(action, path) {
     if (inflight) return;
     inflight = true;
     errorText = "";
-    render();
+    document.body.classList.add("scanning");
     try {
       const res = await fetch(action === "hold" ? "/api/hold" : "/api/release", {
         method: "POST",
@@ -513,6 +606,7 @@
       errorText = err && err.message ? err.message : "Could not update that file";
     } finally {
       inflight = false;
+      document.body.classList.remove("scanning");
       render();
     }
   }
@@ -520,14 +614,15 @@
   function card(a, maxChars) {
     const over = (a.files || []).some(function (f) { return f.tokens > (report.tokenLimit || 2500); });
     const width = maxChars ? Math.max(2, Math.round((a.chars / maxChars) * 100)) : 0;
-    const files = (a.files || []).map(function (f) {
-      return '<li class="file-card"><code>' + esc(f.path) + "</code>" +
+    const i = seq++;
+    const files = (a.files || []).map(function (f, n) {
+      return '<li class="file-card" style="--i:' + n + '"><code>' + esc(f.path) + "</code>" +
         '<p class="purpose">' + esc(f.purpose || "No description in the file") + "</p>" +
         '<p class="when">' + esc(f.when || "") + " · " + fmt(f.tokens) + " tokens · " + fmt(f.chars) + " characters</p>" +
         '<button type="button" class="cut" data-action="hold" data-path="' + esc(f.path) + '">Cut off</button></li>';
     }).join("");
     return (
-      '<article class="agent' + (agent === a.id ? " picked" : "") + '">' +
+      '<article class="agent' + (agent === a.id ? " picked" : "") + '" data-flip="agent:' + esc(a.id) + '" style="--i:' + i + '">' +
         '<button type="button" class="pick" data-action="agent" data-id="' + esc(a.id) + '" aria-pressed="' + (agent === a.id) + '">' +
         '<div class="agent-top"><span class="agent-name">' + esc(a.name) + "</span>" +
         '<span class="tok' + (over ? " hot" : "") + '">' + fmt(a.tokens) + "</span></div>" +
@@ -573,12 +668,24 @@
     }
     const meta = f.kind === "duplicate_line" ? (f.count || (f.files || []).length) + " files" : "";
     return (
-      '<article class="finding" data-kind="' + esc(f.kind) + '">' +
+      '<article class="finding" data-kind="' + esc(f.kind) + '" data-flip="' + esc(flipId(f)) + '" style="--i:' + index + '">' +
         '<div class="finding-top"><span class="k">' + esc(label) + "</span>" +
         (meta ? '<span class="meta">' + esc(meta) + "</span>" : "") + "</div>" +
         body +
       "</article>"
     );
+  }
+
+  function flipId(f) {
+    return [f.kind, f.file, f.line, f.path, f.script, f.count, f.text].join("|").slice(0, 180);
+  }
+
+  function snapshot() {
+    const map = new Map();
+    app.querySelectorAll("[data-flip]").forEach(function (el) {
+      map.set(el.dataset.flip, el.getBoundingClientRect());
+    });
+    return map;
   }
 
   function render() {
@@ -613,11 +720,11 @@
       : "";
     const share = agents.length
       ? '<div class="share" role="img" aria-label="Share of characters by agent">' +
-        agents.map(function (a) { return '<span style="flex:' + Math.max(a.chars, 1) + ' 1 0"></span>'; }).join("") +
+        agents.map(function (a, i) { return '<span style="flex:' + Math.max(a.chars, 1) + ' 1 0;--i:' + i + '"></span>'; }).join("") +
         "</div>"
       : "";
 
-    const chips = CHIPS.map(function (c) {
+    const chips = '<span class="pill" aria-hidden="true"></span>' + CHIPS.map(function (c) {
       return '<button type="button" class="chip" data-action="kind" data-kind="' + c[0] + '" aria-pressed="' + (kind === c[0]) + '">' +
         esc(c[1]) + " " + fmt(counts[c[0]] || 0) + "</button>";
     }).join("");
@@ -642,7 +749,12 @@
     const banner = errorText ? '<p class="error">' + esc(errorText) + "</p>" : "";
     const scanKey = report.scannedAt || "";
     const enter = scanKey !== seenScan;
+    const prevTotal = seenTokens;
     seenScan = scanKey;
+    seenTokens = t.tokens || 0;
+    seq = 0;
+    const prevFlip = enter ? null : snapshot();
+    const pillFrom = enter ? null : pillNow();
     app.classList.toggle("enter", enter);
     const splitLine = (t.onDemandTokens || always.length)
       ? '<p class="splitline">' + fmt(t.alwaysTokens) + " always on · " + fmt(t.onDemandTokens) + " if every skill is loaded</p>"
@@ -674,10 +786,10 @@
         heldLine +
         '<p class="splitline">from ' + fmt(t.chars) + " characters · ÷ 4 · not a model tokenizer</p></div>" +
         '<div class="stats">' +
-          stat(t.files, "Files") +
-          stat(t.agents, "Agents") +
-          stat(t.findings, "Findings", t.findings > 0) +
-          stat(oversizedAll, "Oversized", oversizedAll > 0) +
+          stat(t.files, "Files", false, 0) +
+          stat(t.agents, "Agents", false, 1) +
+          stat(t.findings, "Findings", t.findings > 0, 2) +
+          stat(oversizedAll, "Oversized", oversizedAll > 0, 3) +
         "</div></section>" +
       share + roundNote +
       '<div class="split"><section class="agents-col"><h2>Per agent</h2>' +
@@ -692,27 +804,108 @@
         empty +
       "</section></div>" +
       '<footer class="colophon">contexttax · estimated tokens = characters ÷ 4 · not a tokenizer</footer>';
-    if (enter) countTo(app.querySelector(".count"), t.tokens || 0);
+    if (enter) playEnter(t.tokens || 0);
+    else {
+      playFlip(prevFlip);
+      if (prevTotal != null && prevTotal !== (t.tokens || 0)) spring(app.querySelector(".bill .count"), prevTotal, t.tokens || 0, 0);
+    }
+    placePill(enter, pillFrom);
   }
 
-  function countTo(el, target) {
+  function pillNow() {
+    const pill = app.querySelector(".pill");
+    if (!pill) return null;
+    return { width: pill.style.width, height: pill.style.height, transform: pill.style.transform };
+  }
+
+  function playEnter(total) {
+    app.querySelectorAll(".stat .count").forEach(function (el) {
+      if (!reduceMotion()) el.textContent = "0";
+    });
+    const hero = app.querySelector(".bill .count");
+    spring(hero, 0, total, 40);
+    app.querySelectorAll(".stat .count").forEach(function (el, i) {
+      spring(el, 0, Number(el.dataset.n || 0), 140 + i * 70);
+    });
+  }
+
+  function spring(el, from, to, delay) {
     if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      el.textContent = fmt(target);
+    if (reduceMotion()) {
+      el.textContent = fmt(to);
       return;
     }
-    const start = performance.now();
+    const start = performance.now() + (delay || 0);
     function frame(now) {
-      const p = Math.min(1, (now - start) / 720);
-      const eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = fmt(Math.round(target * eased));
-      if (p < 1) requestAnimationFrame(frame);
+      const t = (now - start) / 1000;
+      if (t < 0) {
+        requestAnimationFrame(frame);
+        return;
+      }
+      const settled = t > 1.05;
+      const x = settled ? 1 : 1 - Math.exp(-5.4 * t) * Math.cos(9.2 * t);
+      el.textContent = fmt(Math.round(from + (to - from) * x));
+      if (!settled) requestAnimationFrame(frame);
+      else el.textContent = fmt(to);
     }
     requestAnimationFrame(frame);
   }
 
-  function stat(n, label, warn) {
-    return '<div class="stat' + (warn ? " warn" : "") + '"><b>' + fmt(n) + "</b><span>" + esc(label) + "</span></div>";
+  function playFlip(prev) {
+    if (!prev || reduceMotion()) return;
+    app.querySelectorAll("[data-flip]").forEach(function (el) {
+      const first = prev.get(el.dataset.flip);
+      if (!first) {
+        el.classList.add("flip-in");
+        return;
+      }
+      const last = el.getBoundingClientRect();
+      const dx = first.left - last.left;
+      const dy = first.top - last.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      el.animate(
+        [{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }],
+        { duration: 480, easing: "cubic-bezier(.2,.8,.2,1)" }
+      );
+    });
+  }
+
+  function placePill(instant, from) {
+    const bar = app.querySelector(".chips");
+    const pill = bar && bar.querySelector(".pill");
+    const on = bar && bar.querySelector('[aria-pressed="true"]');
+    if (!pill || !on) return;
+    const b = bar.getBoundingClientRect();
+    const r = on.getBoundingClientRect();
+    const next = {
+      width: r.width + "px",
+      height: r.height + "px",
+      transform: "translate(" + (r.left - b.left) + "px," + (r.top - b.top) + "px)"
+    };
+    if (from && from.transform && !instant && !reduceMotion()) {
+      pill.classList.add("on");
+      pill.style.transition = "none";
+      pill.style.width = from.width;
+      pill.style.height = from.height;
+      pill.style.transform = from.transform;
+      requestAnimationFrame(function () {
+        pill.style.transition = "";
+        requestAnimationFrame(function () {
+          pill.style.width = next.width;
+          pill.style.height = next.height;
+          pill.style.transform = next.transform;
+        });
+      });
+      return;
+    }
+    pill.style.width = next.width;
+    pill.style.height = next.height;
+    pill.style.transform = next.transform;
+    pill.classList.add("on");
+  }
+
+  function stat(n, label, warn, i) {
+    return '<div class="stat' + (warn ? " warn" : "") + '" style="--i:' + i + '"><b class="count" data-n="' + (n || 0) + '">' + fmt(n) + "</b><span>" + esc(label) + "</span></div>";
   }
 
   load();
