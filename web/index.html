@@ -421,6 +421,7 @@
   let seq = 0;
   let errorText = "";
   let reveal = false;
+  let pendingGate = null;
   const expanded = new Set();
   const app = document.getElementById("app");
   app.addEventListener("click", onClick);
@@ -528,14 +529,24 @@
       render();
     }
     if (action === "hold" || action === "release") {
+      const path = btn.dataset.path;
+      const armed = pendingGate && pendingGate.action === action && pendingGate.path === path;
+      if (!armed) {
+        pendingGate = { action: action, path: path };
+        render();
+        return;
+      }
+      pendingGate = null;
       const card = btn.closest(".file-card, .finding");
-      const go = function () { arming = false; gate(action, btn.dataset.path); };
+      const go = function () { arming = false; gate(action, path); };
       if (card && !reduceMotion()) {
         arming = true;
         card.classList.add(action === "hold" ? "striking" : "restoring");
         window.setTimeout(go, 340);
       } else go();
+      return;
     }
+    pendingGate = null;
   }
 
   function themeBtn() {
@@ -598,8 +609,8 @@
     const files = (a.files || []).map(function (f) {
       return '<li class="file-card"><code>' + esc(f.path) + "</code>" +
         '<p class="purpose">' + esc(f.purpose || "No description in the file") + "</p>" +
-        '<p class="when">' + esc(f.when || "") + " · " + fmt(f.tokens) + " tokens · " + fmt(f.chars) + " characters</p>" +
-        '<button type="button" class="btn yellow small" data-action="hold" data-path="' + esc(f.path) + '">Cut off</button></li>';
+        '<p class="when">' + esc(f.when || "") + " · " + fmt(f.tokens) + " estimated tokens · " + fmt(f.chars) + " code points</p>" +
+        gateButton("hold", f.path, "Cut off", "Confirm cut off") + "</li>";
     }).join("");
     return (
       '<article class="row' + (agent === a.id ? " picked" : "") + '" style="--i:' + i + '">' +
@@ -720,8 +731,8 @@
       return '<article class="finding"><div class="finding-top"><span class="k">Cut off</span><span class="tok">' + fmt(h.tokens) + "</span></div>" +
         '<p class="quote"><code>' + esc(h.path) + "</code></p>" +
         '<p class="purpose">' + esc(h.purpose || "") + "</p>" +
-        '<p class="where">' + esc(h.when || "") + " · " + fmt(h.chars) + " characters</p>" +
-        '<button type="button" class="btn small" data-action="release" data-path="' + esc(h.path) + '">Allow again</button></article>';
+        '<p class="where">' + esc(h.when || "") + " · " + fmt(h.chars) + " code points</p>" +
+        gateButton("release", h.path, "Allow again", "Confirm allow") + "</article>";
     }).join("");
 
     app.classList.toggle("enter", enter);
@@ -736,11 +747,11 @@
       '<section class="hero"><div class="hero-copy">' +
         '<p class="kicker">Preload</p>' +
         '<h1><span><i>What your agents</i></span><span><i>preload.</i></span></h1>' +
-        '<p class="lede">A count of CLAUDE.md, AGENTS.md, Cursor rules, and skills. The number is characters divided by 4. It is the cost of loading the file, not one live chat.</p>' +
+        '<p class="lede">Estimated tokens are Unicode code points divided by 4, rounded down. This is not a model tokenizer: CJK text and dense code are usually undercounted. The number is the cost of loading the file, not one live chat.</p>' +
         '<div class="actions"><button type="button" class="btn" data-action="kind" data-kind="oversized_file">Show oversized</button></div>' +
       "</div>" +
       '<div class="slab"><p class="kicker">Estimated tokens</p><strong class="count">' + (enter ? "0" : fmt(t.tokens)) + "</strong>" +
-        '<p class="fine">' + fmt(t.alwaysTokens) + " always on · " + fmt(t.onDemandTokens) + " if every skill loads" +
+        '<p class="fine">' + fmt(t.alwaysTokens) + " always on · " + fmt(t.onDemandTokens) + " on demand" +
         ((t.heldTokens || 0) ? " · " + fmt(t.heldTokens) + " cut off" : "") + "</p></div></section>" +
       '<dl class="facts">' +
         fact(t.files, "Files", 0) + fact(t.agents, "Agents", 1) +
@@ -749,9 +760,9 @@
       "</dl>" +
       '<p class="pathline">' + esc(report.root) + (report.scannedAt ? " · " + esc(when(report.scannedAt)) : "") + "</p>" +
       '<div class="split"><section><h2>The bill</h2>' +
-        '<p class="hint">Always-on files are in context before the task. A skill is paid only when it is loaded. Cut off moves the file so agents stop finding it.</p>' +
+        '<p class="hint">Always-on files are in context before the task when you start the agent in this directory. On-demand files load later: a nested instruction, a rule that is not always applied, a path-scoped Copilot instruction, or a skill. Cut off asks you to confirm, then copies the file into .contexttax/held and deletes the original.</p>' +
         group("Always on", always) +
-        group("Skills", skills) +
+        group("On demand", skills) +
         (agents.length ? "" : '<p class="empty">Nothing to bill.</p>') +
         (heldRows ? '<h2 style="margin-top:22px">Cut off</h2><p class="hint">Parked in .contexttax/held. They stay out until you allow them. Pasting the parked path into a chat can still open the copy.</p>' + heldRows : "") +
       '</section><section class="findings-col"><h2>Findings</h2>' +
@@ -768,6 +779,13 @@
       });
     } else if (prevTotal != null && prevTotal !== (t.tokens || 0)) tick(app.querySelector(".count"), prevTotal, t.tokens || 0);
     placeRule(ruleFrom);
+  }
+
+  function gateButton(action, path, idle, armed) {
+    const on = pendingGate && pendingGate.action === action && pendingGate.path === path;
+    const yellow = action === "hold" ? " yellow" : "";
+    return '<button type="button" class="btn' + yellow + ' small" data-action="' + action + '" data-path="' + esc(path) + '">' +
+      (on ? armed : idle) + "</button>";
   }
 
   function fact(n, label, i, warn) {

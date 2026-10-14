@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -15,10 +16,12 @@ import (
 )
 
 const (
-	// oversizedTokenLimit is exclusive: a file is flagged only when chars/4 is greater.
+	// oversizedTokenLimit is exclusive: a file is flagged only when the estimate is greater.
 	oversizedTokenLimit = 2500
 	// minDuplicateRunes ignores fences, rulers, and other short lines.
 	minDuplicateRunes = 20
+	// maxBodyBytes is the most of a file the scanner will read into memory.
+	maxBodyBytes = 4 << 20
 )
 
 var skipDirNames = map[string]struct{}{
@@ -177,6 +180,9 @@ func Scan(root string) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+	if err := reconcileHolds(abs); err != nil {
+		return Report{}, err
+	}
 	sources, err := collectSources(abs)
 	if err != nil {
 		return Report{}, err
@@ -226,6 +232,11 @@ func absDir(root string) (string, error) {
 		return "", err
 	}
 	abs = filepath.Clean(abs)
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", err
+	}
+	abs = resolved
 	info, err := os.Stat(abs)
 	if err != nil {
 		return "", err
@@ -260,16 +271,43 @@ func collectSources(root string) ([]sourceFile, error) {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
-		kind, id, name, preload, ok := classify(rel)
+		kind, id, name, _, ok := classify(rel)
 		if !ok {
 			return nil
 		}
-		b, err := os.ReadFile(p)
-		if err != nil {
+		info, err := os.Lstat(p)
+		if err != nil || !info.Mode().IsRegular() {
 			return nil
 		}
-		body := string(b)
-		chars := utf8.RuneCountInString(body)
+		var (
+			body    string
+			lines   []string
+			chars   int
+			purpose string
+		)
+		switch {
+		case info.Size() > maxBodyBytes:
+			chars = int(info.Size())
+			purpose = "Larger than 4 MiB, so the body was not read. The estimate is the byte length divided by 4."
+		default:
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return nil
+			}
+			if bytes.Contains(b, []byte{0}) {
+				chars = len(b)
+				purpose = "Binary file. Line findings were skipped. The estimate is the byte length divided by 4."
+			} else {
+				body = strings.ToValidUTF8(string(b), "")
+				chars = utf8.RuneCountInString(body)
+				lines = strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n")
+				purpose = purposeOf(body)
+			}
+		}
+		preload := refinePreload(rel, kind, body)
+		if kind != "skill" && preload == "on-demand" {
+			id += ":scoped"
+		}
 		out = append(out, sourceFile{
 			Rel:       rel,
 			Abs:       p,
@@ -277,10 +315,10 @@ func collectSources(root string) ([]sourceFile, error) {
 			AgentID:   id,
 			AgentName: name,
 			Preload:   preload,
-			Purpose:   purposeOf(body),
-			When:      whenFor(preload),
+			Purpose:   purpose,
+			When:      whenFor(rel, kind, preload, body),
 			Body:      body,
-			Lines:     strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n"),
+			Lines:     lines,
 			Chars:     chars,
 			Tokens:    chars / 4,
 		})
@@ -302,10 +340,12 @@ func classify(rel string) (kind, id, name, preload string, ok bool) {
 	rel = filepath.ToSlash(rel)
 	base := path.Base(rel)
 	switch base {
-	case "CLAUDE.md":
+	case "CLAUDE.md", "CLAUDE.local.md":
 		return "claude", "claude", "Claude", "always", true
-	case "AGENTS.md":
+	case "AGENTS.md", "AGENTS.override.md":
 		return "agents", "agents", "Agents", "always", true
+	case "GEMINI.md":
+		return "gemini", "gemini", "Gemini", "always", true
 	case "SKILL.md":
 		dir := path.Dir(rel)
 		skill := path.Base(dir)
@@ -314,18 +354,138 @@ func classify(rel string) (kind, id, name, preload string, ok bool) {
 		}
 		return "skill", "skill:" + dir, skill, "on-demand", true
 	}
-	dir := path.Dir(rel)
-	if path.Base(dir) == "rules" && path.Base(path.Dir(dir)) == ".cursor" && strings.HasSuffix(base, ".mdc") {
-		return "cursor", "cursor", "Cursor", "always", true
+	if rel == ".github/copilot-instructions.md" {
+		return "copilot", "copilot", "Copilot", "always", true
+	}
+	if strings.HasPrefix(rel, ".github/instructions/") && strings.HasSuffix(base, ".instructions.md") {
+		return "copilot", "copilot", "Copilot", "on-demand", true
+	}
+	if strings.Contains("/"+rel, "/.claude/rules/") && strings.HasSuffix(base, ".md") {
+		return "claude", "claude", "Claude", "always", true
+	}
+	if strings.Contains("/"+rel, "/.cursor/rules/") && strings.HasSuffix(base, ".mdc") {
+		return "cursor", "cursor", "Cursor", "on-demand", true
 	}
 	return "", "", "", "", false
 }
 
-func whenFor(preload string) string {
-	if preload == "on-demand" {
-		return "Only when this skill is loaded"
+// refinePreload applies launch-versus-on-demand rules from the agent docs.
+// Claude Code loads CLAUDE.md from the working directory upward at launch, and a
+// subdirectory CLAUDE.md only when it reads or edits a file there
+// (https://code.claude.com/docs/en/memory). Rules under .claude/rules/ with no
+// paths field load at launch; a paths field loads on demand. Codex walks
+// AGENTS.md from the repo root down to the working directory and stops there
+// (https://developers.openai.com/codex/guides/agents-md). Cursor applies a nested
+// AGENTS.md when work is in that directory, and a .mdc rule is always-on only
+// when alwaysApply is true (https://cursor.com/docs/rules). Gemini CLI
+// concatenates every GEMINI.md under the working directory into each prompt
+// (https://google-gemini.github.io/gemini-cli/docs/cli/gemini-md.html).
+// .github/copilot-instructions.md applies to every Copilot request in the repo
+// (https://docs.github.com/en/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot).
+func refinePreload(rel, kind, body string) string {
+	rel = filepath.ToSlash(rel)
+	dir := path.Dir(rel)
+	switch kind {
+	case "claude":
+		if strings.Contains("/"+rel, "/.claude/rules/") {
+			if frontmatterHas(body, "paths") {
+				return "on-demand"
+			}
+			// Recursive files inside the project .claude/rules tree load at launch.
+			// A .claude/rules directory nested in another package is not that tree.
+			if strings.HasPrefix(rel, ".claude/rules/") {
+				return "always"
+			}
+			return "on-demand"
+		}
+		if dir == "." || rel == ".claude/CLAUDE.md" || rel == ".claude/CLAUDE.local.md" {
+			return "always"
+		}
+		return "on-demand"
+	case "agents":
+		if dir == "." {
+			return "always"
+		}
+		return "on-demand"
+	case "cursor":
+		if frontmatterTrue(body, "alwaysApply") {
+			return "always"
+		}
+		return "on-demand"
+	case "gemini":
+		return "always"
+	case "copilot":
+		if rel == ".github/copilot-instructions.md" {
+			return "always"
+		}
+		return "on-demand"
+	default:
+		return "on-demand"
 	}
-	return "Every session, before the task starts"
+}
+
+func frontmatterHas(body, key string) bool {
+	_, ok := frontmatter(body)[strings.ToLower(key)]
+	return ok
+}
+
+func frontmatterTrue(body, key string) bool {
+	v, ok := frontmatter(body)[strings.ToLower(key)]
+	if !ok {
+		return false
+	}
+	v = strings.Trim(strings.TrimSpace(v), `"'`)
+	return strings.EqualFold(v, "true")
+}
+
+func frontmatter(body string) map[string]string {
+	out := map[string]string{}
+	text := strings.ReplaceAll(body, "\r\n", "\n")
+	if !strings.HasPrefix(text, "---\n") {
+		return out
+	}
+	rest := text[4:]
+	end := strings.Index(rest, "\n---")
+	if end < 0 {
+		return out
+	}
+	for _, line := range strings.Split(rest[:end], "\n") {
+		k, v, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		out[strings.ToLower(strings.TrimSpace(k))] = strings.TrimSpace(v)
+	}
+	return out
+}
+
+func whenFor(rel, kind, preload, body string) string {
+	rel = filepath.ToSlash(rel)
+	if preload != "on-demand" {
+		return "Every session, before the task starts"
+	}
+	switch kind {
+	case "skill":
+		return "Only when this skill is loaded"
+	case "claude":
+		// Path-scoped rules load when a matching file is read. A subdirectory
+		// CLAUDE.md, and a nested .claude/rules directory, load when Claude
+		// works in that directory. https://code.claude.com/docs/en/memory
+		if strings.Contains("/"+rel, "/.claude/rules/") && frontmatterHas(body, "paths") {
+			return "When Claude reads a matching file"
+		}
+		return "When Claude reads a file in this directory"
+	case "agents":
+		return "When the session starts here, or Cursor works in this directory"
+	case "cursor":
+		return "When Cursor attaches this rule"
+	case "gemini":
+		return "Included in every prompt for a session started at this root"
+	case "copilot":
+		return "When Copilot works on a matching path"
+	default:
+		return "Not loaded at the start of every session"
+	}
 }
 
 func purposeOf(body string) string {
@@ -400,7 +560,7 @@ func buildAgents(sources []sourceFile) []Agent {
 		sort.Slice(a.Files, func(i, j int) bool { return a.Files[i].Path < a.Files[j].Path })
 		agents = append(agents, *a)
 	}
-	kindRank := map[string]int{"claude": 0, "agents": 1, "cursor": 2, "skill": 3}
+	kindRank := map[string]int{"claude": 0, "agents": 1, "cursor": 2, "gemini": 3, "copilot": 4, "skill": 5}
 	sort.Slice(agents, func(i, j int) bool {
 		if kindRank[agents[i].Kind] != kindRank[agents[j].Kind] {
 			return kindRank[agents[i].Kind] < kindRank[agents[j].Kind]

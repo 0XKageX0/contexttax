@@ -3,11 +3,14 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	_ "embed"
@@ -36,6 +39,10 @@ func newHandler(root string) http.Handler {
 }
 
 func gate(w http.ResponseWriter, r *http.Request, root string, hold bool) {
+	if crossOrigin(r) {
+		writeAPIError(w, http.StatusForbidden, "cross-origin request rejected")
+		return
+	}
 	var body struct {
 		Path string `json:"path"`
 	}
@@ -86,9 +93,14 @@ func writeAPIError(w http.ResponseWriter, status int, msg string) {
 }
 
 // Serve scans root on each request and serves the dashboard on addr.
+// addr is forced to 127.0.0.1. A wildcard or other host is not bound.
 // The local page is the interface, so a browser is opened once it is listening.
 func Serve(root, addr string) error {
 	abs, err := absDir(root)
+	if err != nil {
+		return err
+	}
+	addr, err = listenAddr(addr)
 	if err != nil {
 		return err
 	}
@@ -103,6 +115,59 @@ func Serve(root, addr string) error {
 	}
 	go openBrowser(localURL(ln.Addr().String()))
 	return srv.Serve(ln)
+}
+
+// listenAddr rewrites loopback and wildcard hosts to 127.0.0.1 and rejects
+// every other host. The port is kept.
+func listenAddr(addr string) (string, error) {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		addr = ":7070"
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil || port == "" {
+		return "", fmt.Errorf("listen address %q must be host:port", addr)
+	}
+	switch strings.ToLower(host) {
+	case "", "localhost", "0.0.0.0", "::", "[::]", "127.0.0.1", "::1":
+		return net.JoinHostPort("127.0.0.1", port), nil
+	default:
+		return "", fmt.Errorf("contexttax only listens on 127.0.0.1, not %s", host)
+	}
+}
+
+// crossOrigin reports whether a hold or release POST came from another site.
+// A missing Origin is allowed so a local curl still works. Browsers send Origin
+// on POST, and Sec-Fetch-Site: cross-site is always rejected.
+func crossOrigin(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
+		return true
+	}
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Hostname() == "" {
+		return true
+	}
+	host := u.Hostname()
+	if host != "127.0.0.1" && !strings.EqualFold(host, "localhost") && host != "::1" {
+		return true
+	}
+	oport := u.Port()
+	if oport == "" {
+		if u.Scheme == "https" {
+			oport = "443"
+		} else {
+			oport = "80"
+		}
+	}
+	_, rport, err := net.SplitHostPort(r.Host)
+	if err != nil || rport == "" || oport != rport {
+		return true
+	}
+	return false
 }
 
 func localURL(listen string) string {

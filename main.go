@@ -12,7 +12,7 @@ func main() {
 	addr := flag.String("addr", ":7070", "dashboard listen address")
 	rootFlag := flag.String("root", "", "repository root to scan (defaults to the positional path, or .)")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "contexttax scans CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md files\nand serves a local dashboard of estimated preload tokens (characters ÷ 4).\n\nUsage:\n  contexttax [flags] [path]\n\n")
+		fmt.Fprintf(os.Stderr, "contexttax scans instruction files agents load\nand serves a local dashboard of estimated preload tokens (Unicode code points ÷ 4).\n\nUsage:\n  contexttax [flags] [path]\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -31,8 +31,14 @@ func main() {
 		root = *rootFlag
 	}
 
-	fmt.Fprintf(os.Stderr, "contexttax scanning %s\nlistening on %s\n", root, *addr)
-	if err := Serve(root, *addr); err != nil {
+	bound, err := listenAddr(*addr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "contexttax: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "contexttax scanning %s\nlistening on %s\n", root, bound)
+	if err := Serve(root, bound); err != nil {
 		fmt.Fprintf(os.Stderr, "contexttax: %v\n", err)
 		os.Exit(1)
 	}

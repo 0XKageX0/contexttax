@@ -36,7 +36,6 @@ func TestFixtureRepo(t *testing.T) {
 	}
 	for _, sentinel := range []string{
 		"NODESHOULDNOTAPPEAR",
-		"NESTEDRULESHOULDNOTAPPEAR",
 		"ROOTMDCSHOULDNOTAPPEAR",
 		"IGNORETEXTSHOULDNOTAPPEAR",
 	} {
@@ -73,7 +72,7 @@ func TestFixtureRepo(t *testing.T) {
 			t.Fatalf("%s char sum", a.ID)
 		}
 	}
-	wantIDs := []string{"claude", "agents", "cursor", "skill:skills/huge", "skill:skills/review"}
+	wantIDs := []string{"claude", "claude:scoped", "agents", "cursor:scoped", "skill:skills/huge", "skill:skills/review"}
 	if !reflect.DeepEqual(ids, wantIDs) {
 		t.Fatalf("agents %v", ids)
 	}
@@ -83,17 +82,23 @@ func TestFixtureRepo(t *testing.T) {
 	if byID["skill:skills/review"].Name != "review" || byID["skill:skills/huge"].Name != "huge" {
 		t.Fatal("skill names")
 	}
-	if byID["claude"].Kind != "claude" || byID["cursor"].Kind != "cursor" || byID["agents"].Name != "Agents" {
+	if byID["claude"].Kind != "claude" || byID["cursor:scoped"].Kind != "cursor" || byID["agents"].Name != "Agents" {
 		t.Fatal("kinds")
 	}
-	if len(byID["claude"].Files) != 2 {
+	if len(byID["claude"].Files) != 1 || byID["claude"].Files[0].Path != "CLAUDE.md" {
 		t.Fatalf("claude files %+v", byID["claude"].Files)
+	}
+	if byID["claude:scoped"].Preload != "on-demand" || len(byID["claude:scoped"].Files) != 1 || byID["claude:scoped"].Files[0].Path != "packages/api/CLAUDE.md" {
+		t.Fatalf("scoped claude %+v", byID["claude:scoped"])
+	}
+	if byID["cursor:scoped"].Preload != "on-demand" || len(byID["cursor:scoped"].Files) != 2 {
+		t.Fatalf("cursor %+v", byID["cursor:scoped"])
 	}
 	if byID["skill:skills/huge"].Files[0].Tokens <= 2500 {
 		t.Fatalf("huge tokens %d", byID["skill:skills/huge"].Files[0].Tokens)
 	}
 
-	if rep.Totals.Files != 6 || rep.Totals.Agents != 5 || rep.Totals.Findings != len(rep.Findings) {
+	if rep.Totals.Files != 7 || rep.Totals.Agents != 6 || rep.Totals.Findings != len(rep.Findings) {
 		t.Fatalf("totals %+v findings %d", rep.Totals, len(rep.Findings))
 	}
 	if rep.Totals.Chars != fileChars || rep.Totals.Tokens != fileChars/4 {
@@ -105,7 +110,7 @@ func TestFixtureRepo(t *testing.T) {
 	if rep.Totals.AlwaysTokens != rep.Totals.AlwaysChars/4 || rep.Totals.OnDemandTokens != rep.Totals.OnDemandChars/4 {
 		t.Fatal("split tokens")
 	}
-	wantAlways := byID["claude"].Chars + byID["agents"].Chars + byID["cursor"].Chars
+	wantAlways := byID["claude"].Chars + byID["agents"].Chars
 	if rep.Totals.AlwaysChars != wantAlways {
 		t.Fatalf("always chars %d want %d", rep.Totals.AlwaysChars, wantAlways)
 	}
@@ -329,11 +334,15 @@ func TestCursorRulesGlob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rep.Agents) != 1 || rep.Agents[0].ID != "cursor" || len(rep.Agents[0].Files) != 1 {
+	if len(rep.Agents) != 1 || rep.Agents[0].ID != "cursor:scoped" || len(rep.Agents[0].Files) != 2 || rep.Agents[0].Preload != "on-demand" {
 		t.Fatalf("%+v", rep.Agents)
 	}
-	if rep.Agents[0].Files[0].Path != "packages/web/.cursor/rules/voice.mdc" {
-		t.Fatal(rep.Agents[0].Files[0].Path)
+	got := map[string]bool{}
+	for _, f := range rep.Agents[0].Files {
+		got[f.Path] = true
+	}
+	if !got["packages/web/.cursor/rules/voice.mdc"] || !got["packages/web/.cursor/rules/nested/nope.mdc"] {
+		t.Fatal(got)
 	}
 	if len(rep.Findings) != 0 {
 		t.Fatalf("%+v", rep.Findings)
@@ -432,7 +441,7 @@ func TestHTTP(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&rep); err != nil {
 		t.Fatal(err)
 	}
-	if rep.Totals.Files != 6 || len(rep.Findings) == 0 {
+	if rep.Totals.Files != 7 || len(rep.Findings) == 0 {
 		t.Fatalf("report totals %+v findings %d", rep.Totals, len(rep.Findings))
 	}
 
@@ -463,6 +472,9 @@ func TestIndexEmbedded(t *testing.T) {
 	if !bytes.Contains(indexHTML, []byte("api/report")) || !bytes.Contains(indexHTML, []byte("contexttax")) {
 		t.Fatal("embedded dashboard incomplete")
 	}
+	if !bytes.Contains(indexHTML, []byte("Confirm cut off")) || !bytes.Contains(indexHTML, []byte("Unicode code points")) {
+		t.Fatal("dashboard missing confirm step or estimate label")
+	}
 }
 
 func findingsOf(rep Report, kind string) []Finding {
@@ -490,5 +502,243 @@ func mustWrite(t *testing.T, path, body string) {
 	}
 	if err := os.WriteFile(path, []byte(body), 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestTokenEstimateIsRuneCountOverFour(t *testing.T) {
+	dir := t.TempDir()
+	// Eight CJK characters are two estimated tokens. A model tokenizer
+	// usually counts them as more than two. The scan does not.
+	body := strings.Repeat("你", 8) + "\nfunc(){return}\n"
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+	rep, err := Scan(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantChars := utf8.RuneCountInString(body)
+	if rep.Agents[0].Chars != wantChars || rep.Agents[0].Tokens != wantChars/4 || rep.Totals.Tokens != wantChars/4 {
+		t.Fatalf("chars %d tokens %d want chars %d", rep.Agents[0].Chars, rep.Agents[0].Tokens, wantChars)
+	}
+	if rep.Agents[0].Tokens == wantChars {
+		t.Fatal("estimate must divide by 4")
+	}
+}
+
+func TestPreloadRules(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# Project\n\nLoaded at launch from the scan root.\n")
+	mustWrite(t, filepath.Join(dir, "packages", "api", "CLAUDE.md"), "# Package\n\nLoaded when Claude reads a file in this package.\n")
+	mustWrite(t, filepath.Join(dir, "packages", "web", ".claude", "rules", "local.md"), "# Nested rules dir\n\nA nested .claude/rules directory is not the project rules tree.\n")
+	mustWrite(t, filepath.Join(dir, "GEMINI.md"), "# Gemini root\n\nUse the project conventions for every prompt.\n")
+	mustWrite(t, filepath.Join(dir, "packages", "api", "GEMINI.md"), "# Gemini nested\n\nNested Gemini context is still part of the prompt.\n")
+	mustWrite(t, filepath.Join(dir, ".github", "copilot-instructions.md"), "# Copilot\n\nRepository wide instructions for every request.\n")
+	mustWrite(t, filepath.Join(dir, ".github", "instructions", "go.instructions.md"), "# Go only\n\nApply these notes when editing Go files in the repo.\n")
+	mustWrite(t, filepath.Join(dir, "packages", "api", "AGENTS.md"), "# Nested agents\n\nThese notes apply when work stays in this package.\n")
+	mustWrite(t, filepath.Join(dir, "AGENTS.override.md"), "# Override\n\nCodex prefers this file over AGENTS.md in the same directory.\n")
+	mustWrite(t, filepath.Join(dir, ".claude", "rules", "always.md"), "# Always rule\n\nThis rule has no paths field so it loads at launch.\n")
+	mustWrite(t, filepath.Join(dir, ".claude", "rules", "scoped.md"), "---\npaths: [\"**/*.go\"]\n---\n\n# Scoped rule\n\nThis rule loads when a matching file is read.\n")
+	mustWrite(t, filepath.Join(dir, ".cursor", "rules", "always.mdc"), "---\nalwaysApply: true\n---\n\nKeep the copyright header on every source file.\n")
+	mustWrite(t, filepath.Join(dir, ".cursorrules"), "# Legacy cursor file\n\nLEGACYRULESHOULDNOTAPPEAR because the current docs do not list it.\n")
+	rep, err := Scan(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(rep)
+	if strings.Contains(string(raw), "LEGACYRULESHOULDNOTAPPEAR") {
+		t.Fatal(".cursorrules was scanned")
+	}
+	byID := map[string]Agent{}
+	for _, a := range rep.Agents {
+		byID[a.ID] = a
+	}
+	if byID["gemini"].Preload != "always" || len(byID["gemini"].Files) != 2 {
+		t.Fatalf("gemini %+v", byID["gemini"])
+	}
+	geminiPaths := map[string]bool{}
+	for _, f := range byID["gemini"].Files {
+		geminiPaths[f.Path] = true
+		if f.When != "Every session, before the task starts" {
+			t.Fatalf("nested GEMINI.md must stay always-on, got %+v", f)
+		}
+	}
+	if !geminiPaths["GEMINI.md"] || !geminiPaths["packages/api/GEMINI.md"] {
+		t.Fatalf("gemini files %+v", geminiPaths)
+	}
+	if byID["copilot"].Preload != "always" || len(byID["copilot"].Files) != 1 {
+		t.Fatalf("copilot %+v", byID["copilot"])
+	}
+	if byID["copilot:scoped"].Preload != "on-demand" || byID["copilot:scoped"].Files[0].Path != ".github/instructions/go.instructions.md" {
+		t.Fatalf("scoped copilot %+v", byID["copilot:scoped"])
+	}
+	if byID["agents"].Preload != "always" || byID["agents"].Files[0].Path != "AGENTS.override.md" {
+		t.Fatalf("agents %+v", byID["agents"])
+	}
+	if byID["agents:scoped"].Preload != "on-demand" || byID["agents:scoped"].Files[0].Path != "packages/api/AGENTS.md" {
+		t.Fatalf("nested agents %+v", byID["agents:scoped"])
+	}
+	claudeAlways := map[string]bool{}
+	for _, f := range byID["claude"].Files {
+		claudeAlways[f.Path] = true
+	}
+	if byID["claude"].Preload != "always" || !claudeAlways["CLAUDE.md"] || !claudeAlways[".claude/rules/always.md"] {
+		t.Fatalf("claude rules %+v", byID["claude"])
+	}
+	claudeNeed := map[string]string{}
+	for _, f := range byID["claude:scoped"].Files {
+		claudeNeed[f.Path] = f.When
+	}
+	if byID["claude:scoped"].Preload != "on-demand" ||
+		claudeNeed[".claude/rules/scoped.md"] != "When Claude reads a matching file" ||
+		claudeNeed["packages/api/CLAUDE.md"] != "When Claude reads a file in this directory" ||
+		claudeNeed["packages/web/.claude/rules/local.md"] != "When Claude reads a file in this directory" {
+		t.Fatalf("scoped rule %+v", byID["claude:scoped"])
+	}
+	if byID["cursor"].Preload != "always" || byID["cursor"].Files[0].Path != ".cursor/rules/always.mdc" {
+		t.Fatalf("cursor %+v", byID["cursor"])
+	}
+}
+
+func TestBinaryAndHugeFiles(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "skills", "bin", "SKILL.md"), "BINARYSHOULDNOT\x00BEALINE")
+	hugePath := filepath.Join(dir, "skills", "big", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(hugePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(hugePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("HUGEBODYSHOULDNOTBESCANNED as a line finding in this file.\n"); err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 1<<20)
+	for i := 0; i < 4; i++ {
+		if _, err := f.Write(buf); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(hugePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep, err := Scan(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(rep)
+	if strings.Contains(string(raw), "BINARYSHOULDNOT") || strings.Contains(string(raw), "HUGEBODYSHOULDNOTBESCANNED") {
+		t.Fatal("binary or huge body leaked into findings")
+	}
+	byPath := map[string]FileStat{}
+	for _, a := range rep.Agents {
+		for _, file := range a.Files {
+			byPath[file.Path] = file
+		}
+	}
+	bin := byPath["skills/bin/SKILL.md"]
+	if bin.Chars != len("BINARYSHOULDNOT\x00BEALINE") || bin.Tokens != bin.Chars/4 || !strings.Contains(bin.Purpose, "Binary") {
+		t.Fatalf("binary %+v", bin)
+	}
+	huge := byPath["skills/big/SKILL.md"]
+	if huge.Chars != int(info.Size()) || huge.Tokens != huge.Chars/4 || !strings.Contains(huge.Purpose, "4 MiB") {
+		t.Fatalf("huge %+v size %d", huge, info.Size())
+	}
+	if len(findingsOf(rep, "duplicate_line")) != 0 || len(findingsOf(rep, "missing_path")) != 0 {
+		t.Fatalf("line findings %+v", rep.Findings)
+	}
+}
+
+func TestUnreadableDirDoesNotFailScan(t *testing.T) {
+	dir := t.TempDir()
+	locked := filepath.Join(dir, "secret")
+	mustWrite(t, filepath.Join(locked, "AGENTS.md"), "LOCKEDSHOULDNOTAPPEAR in the scan output at all.\n")
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "Visible agent instructions stay in the report.\n")
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	probe, err := os.Open(locked)
+	if err == nil {
+		probe.Close()
+		t.Skip("process can still read mode 000 directories")
+	}
+	rep, err := Scan(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(rep)
+	if strings.Contains(string(raw), "LOCKEDSHOULDNOTAPPEAR") || len(rep.Agents) != 1 {
+		t.Fatalf("%s agents %d", raw, len(rep.Agents))
+	}
+}
+
+func TestListenAddrLoopbackOnly(t *testing.T) {
+	got, err := listenAddr(":7070")
+	if err != nil || got != "127.0.0.1:7070" {
+		t.Fatalf("%s %v", got, err)
+	}
+	got, err = listenAddr("0.0.0.0:8080")
+	if err != nil || got != "127.0.0.1:8080" {
+		t.Fatalf("%s %v", got, err)
+	}
+	got, err = listenAddr("localhost:9")
+	if err != nil || got != "127.0.0.1:9" {
+		t.Fatalf("%s %v", got, err)
+	}
+	got, err = listenAddr("[::1]:7070")
+	if err != nil || got != "127.0.0.1:7070" {
+		t.Fatalf("%s %v", got, err)
+	}
+	got, err = listenAddr("[::]:9")
+	if err != nil || got != "127.0.0.1:9" {
+		t.Fatalf("%s %v", got, err)
+	}
+	if _, err := listenAddr("192.168.1.5:7070"); err == nil {
+		t.Fatal("public host was accepted")
+	}
+}
+
+func TestCrossOriginHoldRejected(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "skills", "review", "SKILL.md"), "# Review skill\n\nLook carefully before changing the file.\n")
+	srv := httptest.NewServer(newHandler(dir))
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/hold", strings.NewReader(`{"path":"skills/review/SKILL.md"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "https://evil.example")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("evil origin %d", res.StatusCode)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "skills", "review", "SKILL.md")); err != nil {
+		t.Fatal("file moved on a cross-origin post")
+	}
+
+	req2, err := http.NewRequest(http.MethodPost, srv.URL+"/api/hold", strings.NewReader(`{"path":"skills/review/SKILL.md"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Origin", srv.URL)
+	req2.Header.Set("Sec-Fetch-Site", "cross-site")
+	res2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res2.Body.Close()
+	if res2.StatusCode != http.StatusForbidden {
+		t.Fatalf("sec-fetch %d", res2.StatusCode)
 	}
 }
