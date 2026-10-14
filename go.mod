@@ -1,3 +1,3 @@
-module github.com/0XKage0X/contexttax
+module github.com/0XKageX0/contexttax
 
 go 1.24
