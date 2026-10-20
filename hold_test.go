@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -100,7 +101,7 @@ func TestHoldAPI(t *testing.T) {
 	srv := httptest.NewServer(newHandler(dir))
 	defer srv.Close()
 
-	res, err := http.Post(srv.URL+"/api/hold", "application/json", bytes.NewBufferString(`{"path":"skills/review/SKILL.md"}`))
+	res, err := postJSON(t, srv, "/api/hold", `{"path":"skills/review/SKILL.md"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +117,7 @@ func TestHoldAPI(t *testing.T) {
 		t.Fatalf("hold response agents=%d held=%d", len(rep.Agents), len(rep.Held))
 	}
 
-	res2, err := http.Post(srv.URL+"/api/hold", "application/json", bytes.NewBufferString(`{"path":"nope.md"}`))
+	res2, err := postJSON(t, srv, "/api/hold", `{"path":"nope.md"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,14 +259,49 @@ func TestReconcileInterruptedHold(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(src); !os.IsNotExist(err) {
-		t.Fatal("interrupted hold left the original in place")
+	if _, err := os.Stat(src); err != nil {
+		t.Fatal("a scan must not delete an interrupted hold")
 	}
-	if len(rep.Held) != 1 || len(rep.Agents) != 0 {
+	if len(rep.Held) != 1 || !rep.Held[0].Pending || len(rep.Agents) != 1 {
 		t.Fatalf("held %+v agents %d", rep.Held, len(rep.Agents))
 	}
 	got, err := os.ReadFile(parked)
 	if err != nil || string(got) != body {
 		t.Fatal("parked bytes lost")
 	}
+}
+
+func postJSON(t *testing.T, srv *httptest.Server, path, body string) (*http.Response, error) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, srv.URL+path, strings.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Contexttax-Token", tokenFrom(t, srv))
+	return http.DefaultClient.Do(req)
+}
+
+func tokenFrom(t *testing.T, srv *httptest.Server) string {
+	t.Helper()
+	res, err := http.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const needle = `name="contexttax-token" content="`
+	i := bytes.Index(b, []byte(needle))
+	if i < 0 {
+		t.Fatal("token meta missing")
+	}
+	rest := b[i+len(needle):]
+	j := bytes.IndexByte(rest, '"')
+	if j <= 0 {
+		t.Fatal("token meta empty")
+	}
+	return string(rest[:j])
 }
