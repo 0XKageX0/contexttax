@@ -31,11 +31,11 @@ contexttax.exe C:\path\to\repo
 
 Do not use `./contexttax` in Command Prompt. That form is for macOS and Linux.
 
-A published `v*` tag includes `contexttax_<version>_<os>_<arch>` (`.exe` on Windows) and `SHA256SUMS`. You do not need Go to run that exe. From the directory you want to scan:
+A published `v*` tag includes `contexttax_<version>_<os>_<arch>` (`.exe` on Windows) and `SHA256SUMS`. You do not need Go to run that file. For tag v0.2.3, from the directory you want to scan:
 
 ```bat
-contexttax_0.2.2_windows_amd64.exe
-contexttax_0.2.2_windows_amd64.exe C:\path\to\repo
+contexttax_0.2.3_windows_amd64.exe
+contexttax_0.2.3_windows_amd64.exe C:\path\to\repo
 ```
 
 ## Usage
@@ -44,7 +44,10 @@ contexttax_0.2.2_windows_amd64.exe C:\path\to\repo
 contexttax                 # scan the current directory, listen on 127.0.0.1:7070
 contexttax /path/to/repo
 contexttax -addr :8080 .   # rewritten to 127.0.0.1:8080
+contexttax -max-files 2000 -max-walk 50000 -max-read-kib 256 -estimate runes .
 ```
+
+`-max-files` stops after that many instruction files (default 2000). `-max-walk` stops after that many directory entries (default 50000). `-max-read-kib` is how much of one instruction file is read (default 256). `-estimate` is `runes` or `bytes`, then divided by 4. Caps must be positive. When any of these stops the walk, the report sets `truncated` to true.
 
 Open <http://127.0.0.1:7070>. The program opens that page in your browser. The page is embedded in the binary. There is no Node server and no frontend framework.
 
@@ -75,11 +78,11 @@ Codex reads at most one of `AGENTS.override.md` and `AGENTS.md` per directory, p
 
 `.cursorrules` is not scanned. The current Cursor rules page does not list it.
 
-Skipped directories, matched case-insensitively: `node_modules`, `.git`, `vendor`, `dist`, `.next`, `coverage`, `.turbo`, `.cache`, `.tools`, `.contexttax`, `appdata`, `application data`, `local settings`, `$recycle.bin`, `system volume information`, `windows`, `program files`, `program files (x86)`, `programdata`, `recovery`.
+Skipped directories, matched case-insensitively: `node_modules`, `.git`, `vendor`, `dist`, `.next`, `coverage`, `.turbo`, `.cache`, `.tools`, and `.contexttax`. When the scan root is a filesystem root or the user profile, these names are also skipped: `appdata`, `application data`, `local settings`, `$recycle.bin`, `system volume information`, `windows`, `program files`, `program files (x86)`, `programdata`, and `recovery`. A repository that merely contains a `windows/` folder is still scanned.
 
 ## The bill
 
-The estimate is Unicode code points divided by 4, rounded down. It is not a model tokenizer. A file that contains a NUL byte, and any file larger than 4 MiB, uses the byte length divided by 4 instead, and line findings are skipped for that file.
+The estimate is Unicode code points divided by 4, rounded down. It is not a model tokenizer. Pass `-estimate bytes` to divide the byte length by 4 instead. A file that contains a NUL byte, and any file larger than the read cap, uses the byte length divided by 4, and line findings are skipped for that file. The default read cap is 256 KiB.
 
 An agent's total divides the summed character count once, so it can be a few tokens higher than the sum of the per-file rows.
 
@@ -105,27 +108,31 @@ Each file on the dashboard shows where it lives, when that agent loads it, and a
 
 ## Cutting a file off
 
-**Cut off** asks for a second click, then copies that instruction file into `.contexttax/held`, writes `.contexttax/held.json`, and deletes the original. **Allow again** also asks for a second click, then puts the parked bytes back.
+**Cut off** asks for a second click, then copies that instruction file into `.contexttax/held`, writes `.contexttax/held.json`, and deletes the original only if it is still the same regular file. **Allow again** also asks for a second click, then puts the parked bytes back.
 
-If a file is already at the original path, Allow again refuses and leaves the parked copy where it is. If the process dies after the copy and the manifest write, the next scan deletes the original only when those two copies are byte for byte the same. A different file at the original path is left alone.
+If a file is already at the original path, Allow again refuses and leaves the parked copy where it is. Opening the dashboard does not delete anything. If the process dies after the copy and the manifest write, the original stays in place and the held row is marked pending. **Finish** deletes that original only when the parked copy and the original are byte for byte the same.
 
-Agents load these files by name, so a parked file is no longer on the path they search. This is a permission you give from the dashboard. It is not a sandbox. If you paste the parked path into a chat, the agent can still open that copy. Commit `.contexttax/held` if the cutoff should stay off for everyone who clones the repo.
+Agents load these files by name, so a parked file is no longer on the path they search. This is a permission you give from the dashboard. It is not a sandbox. If you paste the parked path into a chat, the agent can still open that copy. `.contexttax/` is gitignored. Do not commit it.
 
-`POST /api/hold` and `POST /api/release` reject a cross-origin browser request. A request with no `Origin` header, such as curl on the same machine, is still accepted.
+`POST /api/hold`, `POST /api/release`, and `POST /api/finish` require `Content-Type: application/json` and the `X-Contexttax-Token` value embedded in the dashboard page. A cross-origin `Origin`, or a `Sec-Fetch-Site` other than `same-origin` or `none`, is rejected. A request with no token is rejected, including curl. The token is random for each process. A program on this machine that can read the page can also call those routes.
 
 ## API
 
 `GET /api/report` returns JSON:
 
 - `agents` — id, name, kind (`claude`, `agents`, `cursor`, `gemini`, `copilot`, `skill`), `preload` (`always` or `on-demand`), characters, tokens, and files. Each file has `path`, `purpose`, `when`, `chars`, and `tokens`. An on-demand file that is not a skill uses an id ending in `:scoped`, so it is not added to the always-on row
-- `held` — files parked by Cut off, with the same fields plus `heldAt`
+- `held` — files parked by Cut off, with the same fields plus `heldAt`. `pending` is true when the original file is still in place
 - `totals` — file and agent counts, plus always-on, on-demand, held, and combined characters and tokens
 - `findings` — kind, message, and the locations that produced it
 - `tokenLimit` — `2500`
 - `root` — absolute path of the scan
 - `scannedAt` — time of that request
+- `truncated` — true when the file cap or the walk cap stopped the scan
+- `estimate` — `runes/4` or `bytes/4`
 
-`POST /api/hold` and `POST /api/release` take `{"path":"skills/review/SKILL.md"}` and return the new report. The path must be relative to the scanned root. Absolute paths, drive letters, `..`, and symlinks are rejected.
+`GET /api/report` does not create, delete, or move files.
+
+`POST /api/hold`, `POST /api/release`, and `POST /api/finish` take `{"path":"skills/review/SKILL.md"}` and return the new report. The path must be an instruction file relative to the scanned root. Absolute paths, drive letters, reserved device names, `..`, and symlinks are rejected. The response error text does not include the filesystem path.
 
 ## Development
 

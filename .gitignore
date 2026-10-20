@@ -5,4 +5,7 @@
 *.test
 *.out
 
+# Hold state. Cut off copies instruction files here. Do not commit it.
+.contexttax/
+
 .DS_Store
