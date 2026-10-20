@@ -20,14 +20,28 @@ const (
 	oversizedTokenLimit = 2500
 	// minDuplicateRunes ignores fences, rulers, and other short lines.
 	minDuplicateRunes = 20
-	// maxBodyBytes is the most of a file the scanner will read into memory.
-	maxBodyBytes = 4 << 20
 )
 
-var skipDirNames = map[string]struct{}{
+// Scan caps. Tests and flags may lower them. maxReadBytes is how much of one
+// instruction file is read; a larger file is still billed from its lstat size.
+var (
+	maxReadBytes        int64 = 256 << 10
+	maxInstructionFiles       = 2000
+	maxWalkEntries            = 50000
+	// estimateBytes, when set from -estimate bytes, counts bytes instead of
+	// Unicode code points. The divisor is still 4.
+	estimateBytes = false
+)
+
+var alwaysSkipDir = map[string]struct{}{
 	"node_modules": {}, ".git": {}, "vendor": {}, "dist": {},
 	".next": {}, "coverage": {}, ".turbo": {}, ".cache": {},
 	".tools": {}, ".contexttax": {},
+}
+
+// profileSkipDir is applied only when the scan root is a drive root or the
+// user profile. A repository that contains a windows/ folder is not one of those.
+var profileSkipDir = map[string]struct{}{
 	"appdata": {}, "application data": {}, "local settings": {},
 	"$recycle.bin": {}, "system volume information": {},
 	"windows": {}, "program files": {}, "program files (x86)": {},
@@ -71,6 +85,8 @@ type Report struct {
 	Totals     Totals    `json:"totals"`
 	Findings   []Finding `json:"findings"`
 	Held       []Held    `json:"held"`
+	Truncated  bool      `json:"truncated,omitempty"`
+	Estimate   string    `json:"estimate"`
 }
 
 // Agent is one preload audience: Claude, Agents, Cursor, or a single skill.
@@ -105,6 +121,7 @@ type Held struct {
 	Chars   int       `json:"chars"`
 	Tokens  int       `json:"tokens"`
 	HeldAt  time.Time `json:"heldAt"`
+	Pending bool      `json:"pending,omitempty"`
 }
 
 // Totals roll the whole scan up. Tokens are floor(chars/4) on the combined
@@ -180,10 +197,7 @@ func Scan(root string) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	if err := reconcileHolds(abs); err != nil {
-		return Report{}, err
-	}
-	sources, err := collectSources(abs)
+	sources, truncated, err := collectSources(abs)
 	if err != nil {
 		return Report{}, err
 	}
@@ -194,6 +208,8 @@ func Scan(root string) (Report, error) {
 		Agents:     []Agent{},
 		Findings:   []Finding{},
 		Held:       []Held{},
+		Truncated:  truncated,
+		Estimate:   estimateName(),
 	}
 	rep.Agents = buildAgents(sources)
 	s := &scanner{root: abs, cache: map[string]scriptSet{}}
@@ -247,24 +263,41 @@ func absDir(root string) (string, error) {
 	return abs, nil
 }
 
-func collectSources(root string) ([]sourceFile, error) {
+func estimateName() string {
+	if estimateBytes {
+		return "bytes/4"
+	}
+	return "runes/4"
+}
+
+func collectSources(root string) ([]sourceFile, bool, error) {
 	var out []sourceFile
+	truncated := false
+	walked := 0
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		walked++
+		if walked > maxWalkEntries {
+			truncated = true
+			return fs.SkipAll
+		}
 		if err != nil {
-			// A locked or protected folder must not fail the whole scan.
 			if d == nil || d.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		if d.IsDir() {
-			if p != root && skipDir(d.Name()) {
+			if p != root && skipDirAt(root, d.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		if d.Type()&os.ModeSymlink != 0 {
 			return nil
+		}
+		if len(out) >= maxInstructionFiles {
+			truncated = true
+			return fs.SkipAll
 		}
 		rel, err := filepath.Rel(root, p)
 		if err != nil {
@@ -286,11 +319,11 @@ func collectSources(root string) ([]sourceFile, error) {
 			purpose string
 		)
 		switch {
-		case info.Size() > maxBodyBytes:
+		case info.Size() > maxReadBytes:
 			chars = int(info.Size())
-			purpose = "Larger than 4 MiB, so the body was not read. The estimate is the byte length divided by 4."
+			purpose = "Larger than the read cap, so the body was not read. The estimate is the byte length divided by 4."
 		default:
-			b, err := os.ReadFile(p)
+			b, err := readLimited(p, maxReadBytes)
 			if err != nil {
 				return nil
 			}
@@ -299,7 +332,11 @@ func collectSources(root string) ([]sourceFile, error) {
 				purpose = "Binary file. Line findings were skipped. The estimate is the byte length divided by 4."
 			} else {
 				body = strings.ToValidUTF8(string(b), "")
-				chars = utf8.RuneCountInString(body)
+				if estimateBytes {
+					chars = len(b)
+				} else {
+					chars = utf8.RuneCountInString(body)
+				}
 				lines = strings.Split(strings.ReplaceAll(body, "\r\n", "\n"), "\n")
 				purpose = purposeOf(body)
 			}
@@ -325,15 +362,39 @@ func collectSources(root string) ([]sourceFile, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, truncated, err
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Rel < out[j].Rel })
-	return out, nil
+	return out, truncated, nil
 }
 
-func skipDir(name string) bool {
-	_, ok := skipDirNames[strings.ToLower(name)]
-	return ok
+func skipDirAt(root, name string) bool {
+	low := strings.ToLower(name)
+	if _, ok := alwaysSkipDir[low]; ok {
+		return true
+	}
+	if _, ok := profileSkipDir[low]; ok && rootSkipsOSDirs(root) {
+		return true
+	}
+	return false
+}
+
+// rootSkipsOSDirs is true for a filesystem root or the user profile.
+// A project directory that merely contains windows/ is not skipped.
+func rootSkipsOSDirs(root string) bool {
+	clean := filepath.Clean(root)
+	if clean == string(filepath.Separator) {
+		return true
+	}
+	vol := filepath.VolumeName(clean)
+	if vol != "" && strings.EqualFold(clean, vol+string(filepath.Separator)) {
+		return true
+	}
+	home, err := os.UserHomeDir()
+	if err == nil && samePath(clean, home) {
+		return true
+	}
+	return false
 }
 
 func classify(rel string) (kind, id, name, preload string, ok bool) {
@@ -492,12 +553,17 @@ func purposeOf(body string) string {
 	text := strings.ReplaceAll(body, "\r\n", "\n")
 	lines := strings.Split(text, "\n")
 	if len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
-		for _, line := range lines[1:] {
+		for i := 1; i < len(lines); i++ {
+			line := lines[i]
 			if strings.TrimSpace(line) == "---" {
 				break
 			}
 			if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "description:"); ok {
-				return clipPurpose(strings.Trim(strings.TrimSpace(rest), `"'`))
+				value := strings.Trim(strings.TrimSpace(rest), `"'`)
+				if yamlBlock(value) {
+					return clipPurpose(firstContinuation(lines, i+1))
+				}
+				return clipPurpose(value)
 			}
 		}
 	}
@@ -514,6 +580,29 @@ func purposeOf(body string) string {
 		}
 	}
 	return "No description in the file"
+}
+
+func yamlBlock(value string) bool {
+	switch value {
+	case ">", "|", ">-", "|-", ">+", "|+", ">|", "|>":
+		return true
+	default:
+		return false
+	}
+}
+
+func firstContinuation(lines []string, start int) string {
+	for i := start; i < len(lines); i++ {
+		s := strings.TrimSpace(lines[i])
+		if s == "" || s == "---" {
+			if s == "---" {
+				return ""
+			}
+			continue
+		}
+		return s
+	}
+	return ""
 }
 
 func clipPurpose(s string) string {
@@ -751,22 +840,53 @@ func looksLikePath(s string) bool {
 }
 
 func refExists(root, sourceAbs, ref string) bool {
-	ref = filepath.FromSlash(ref)
-	var candidates []string
-	if filepath.IsAbs(ref) {
-		candidates = []string{ref}
-	} else {
-		candidates = []string{
-			filepath.Join(root, ref),
-			filepath.Join(filepath.Dir(sourceAbs), ref),
-		}
+	ref = strings.TrimSpace(filepath.ToSlash(ref))
+	if ref == "" || strings.HasPrefix(ref, "/") || filepath.IsAbs(filepath.FromSlash(ref)) {
+		return false
 	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
+	ref = filepath.FromSlash(ref)
+	for _, c := range []string{
+		filepath.Join(root, ref),
+		filepath.Join(filepath.Dir(sourceAbs), ref),
+	} {
+		if entryInside(root, c) {
 			return true
 		}
 	}
 	return false
+}
+
+// entryInside reports whether full is a directory entry inside root.
+// It does not follow symlinks and does not stat a path that leaves root.
+func entryInside(root, full string) bool {
+	full = filepath.Clean(full)
+	rel, err := filepath.Rel(root, full)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	cur := root
+	parts := strings.Split(rel, string(filepath.Separator))
+	for i, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+		next := filepath.Join(cur, part)
+		info, err := os.Lstat(next)
+		if err != nil {
+			return false
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return i == len(parts)-1
+		}
+		if i < len(parts)-1 && !info.IsDir() {
+			return false
+		}
+		cur = next
+	}
+	return true
 }
 
 func (s *scanner) scriptFindings(sources []sourceFile) []Finding {
@@ -858,13 +978,24 @@ func (s *scanner) lookupScripts(fromFile string) scriptSet {
 
 func readPackageJSON(root, dir string) scriptSet {
 	pkgPath := filepath.Join(dir, "package.json")
-	b, err := os.ReadFile(pkgPath)
+	if !withinRoot(root, pkgPath) {
+		return scriptSet{}
+	}
+	info, err := os.Lstat(pkgPath)
 	if err != nil {
 		return scriptSet{}
 	}
-	rel, err := filepath.Rel(root, pkgPath)
-	if err != nil {
+	rel, relErr := filepath.Rel(root, pkgPath)
+	if relErr != nil {
 		rel = pkgPath
+	}
+	rel = filepath.ToSlash(rel)
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() > 1<<20 {
+		return scriptSet{found: true, broken: true, rel: rel}
+	}
+	b, err := readLimited(pkgPath, 1<<20)
+	if err != nil {
+		return scriptSet{found: true, broken: true, rel: rel}
 	}
 	set := scriptSet{
 		found:   true,

@@ -413,11 +413,27 @@ func TestScanMissingDir(t *testing.T) {
 }
 
 func TestSkipProtectedNames(t *testing.T) {
-	if !skipDir("AppData") || !skipDir("$Recycle.Bin") || !skipDir("node_modules") {
-		t.Fatal("expected protected directories to be skipped")
+	dir := t.TempDir()
+	if !skipDirAt(dir, "node_modules") || !skipDirAt(dir, ".git") {
+		t.Fatal("expected repository junk directories to be skipped")
 	}
-	if skipDir("src") {
-		t.Fatal("src should be scanned")
+	if skipDirAt(dir, "windows") || skipDirAt(dir, "AppData") || skipDirAt(dir, "src") {
+		t.Fatal("a normal repository must still scan windows, AppData, and src")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rootSkipsOSDirs(home) || !skipDirAt(home, "windows") || !skipDirAt(home, "$Recycle.Bin") {
+		t.Fatal("profile and drive-root scans should skip OS directories")
+	}
+	mustWrite(t, filepath.Join(dir, "windows", "AGENTS.md"), "# Windows package\n\nThis Flutter or Electron folder is part of the repo.\n")
+	rep, err := Scan(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Agents) != 1 || rep.Agents[0].Files[0].Path != "windows/AGENTS.md" {
+		t.Fatalf("windows folder was skipped: %+v", rep.Agents)
 	}
 }
 
@@ -644,7 +660,7 @@ func TestBinaryAndHugeFiles(t *testing.T) {
 		t.Fatalf("binary %+v", bin)
 	}
 	huge := byPath["skills/big/SKILL.md"]
-	if huge.Chars != int(info.Size()) || huge.Tokens != huge.Chars/4 || !strings.Contains(huge.Purpose, "4 MiB") {
+	if huge.Chars != int(info.Size()) || huge.Tokens != huge.Chars/4 || !strings.Contains(huge.Purpose, "read cap") {
 		t.Fatalf("huge %+v size %d", huge, info.Size())
 	}
 	if len(findingsOf(rep, "duplicate_line")) != 0 || len(findingsOf(rep, "missing_path")) != 0 {
