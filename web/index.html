@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light">
-<script>
+<meta name="contexttax-token" content="__CONTEXTTAX_TOKEN__">
+<script nonce="__CSP_NONCE__">
 (function () {
   try {
     var t = localStorage.getItem("contexttax-theme");
@@ -17,10 +18,7 @@
 </script>
 <title>contexttax</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2312151c'/%3E%3Crect x='6' y='14' width='20' height='8' fill='%23ffe14a'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
+<style nonce="__CSP_NONCE__">
   :root, [data-theme="light"] {
     --ink: #12151c;
     --paper: #f3f5f8;
@@ -394,7 +392,7 @@
   <p class="loading">Scanning CLAUDE.md, AGENTS.md, .cursor/rules/*.mdc, and SKILL.md.</p>
 </div>
 <noscript><p class="error">contexttax needs JavaScript to draw this report.</p></noscript>
-<script>
+<script nonce="__CSP_NONCE__">
 (function () {
   const KIND_LABEL = {
     duplicate_line: "Duplicated line",
@@ -430,6 +428,17 @@
     const path = window.location.pathname || "/";
     const base = path.endsWith("/") ? path : path.replace(/\/[^/]*$/, "/");
     return base + "api/report";
+  }
+
+  function apiURL(action) {
+    const path = window.location.pathname || "/";
+    const base = path.endsWith("/") ? path : path.replace(/\/[^/]*$/, "/");
+    return base + "api/" + action;
+  }
+
+  function pageToken() {
+    const meta = document.querySelector('meta[name="contexttax-token"]');
+    return meta ? (meta.getAttribute("content") || "") : "";
   }
 
   function esc(s) {
@@ -528,7 +537,7 @@
       else expanded.add(key);
       render();
     }
-    if (action === "hold" || action === "release") {
+    if (action === "hold" || action === "release" || action === "finish") {
       const path = btn.dataset.path;
       const armed = pendingGate && pendingGate.action === action && pendingGate.path === path;
       if (!armed) {
@@ -584,9 +593,9 @@
     errorText = "";
     document.body.classList.add("scanning");
     try {
-      const res = await fetch(action === "hold" ? "/api/hold" : "/api/release", {
+      const res = await fetch(apiURL(action), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Contexttax-Token": pageToken() },
         body: JSON.stringify({ path: path })
       });
       const data = await res.json();
@@ -728,11 +737,14 @@
     }
 
     const heldRows = (report.held || []).map(function (h) {
-      return '<article class="finding"><div class="finding-top"><span class="k">Cut off</span><span class="tok">' + fmt(h.tokens) + "</span></div>" +
+      const action = h.pending ? "finish" : "release";
+      const label = h.pending ? "Finish cut off" : "Allow again";
+      const again = h.pending ? "Confirm finish" : "Confirm allow";
+      return '<article class="finding"><div class="finding-top"><span class="k">' + (h.pending ? "Pending" : "Cut off") + '</span><span class="tok">' + fmt(h.tokens) + "</span></div>" +
         '<p class="quote"><code>' + esc(h.path) + "</code></p>" +
         '<p class="purpose">' + esc(h.purpose || "") + "</p>" +
-        '<p class="where">' + esc(h.when || "") + " · " + fmt(h.chars) + " code points</p>" +
-        gateButton("release", h.path, "Allow again", "Confirm allow") + "</article>";
+        '<p class="where">' + esc(h.when || "") + " · " + fmt(h.chars) + " code points" + (h.pending ? " · original still in place" : "") + "</p>" +
+        gateButton(action, h.path, label, again) + "</article>";
     }).join("");
 
     app.classList.toggle("enter", enter);
@@ -759,6 +771,7 @@
         fact(oversizedAll, "Oversized", 3, oversizedAll > 0) +
       "</dl>" +
       '<p class="pathline">' + esc(report.root) + (report.scannedAt ? " · " + esc(when(report.scannedAt)) : "") + "</p>" +
+      (report.truncated ? '<p class="hint">This scan stopped early. The repository is larger than the safety limit, so the bill is incomplete.</p>' : "") +
       '<div class="split"><section><h2>The bill</h2>' +
         '<p class="hint">Always-on files are in context before the task when you start the agent in this directory. On-demand files load later: a nested instruction, a rule that is not always applied, a path-scoped Copilot instruction, or a skill. Cut off asks you to confirm, then copies the file into .contexttax/held and deletes the original.</p>' +
         group("Always on", always) +
