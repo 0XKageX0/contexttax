@@ -75,11 +75,12 @@ jobs:
       - name: Checksums and release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -eu
-          cd dist
-          sha256sum * > SHA256SUMS
+          ( cd dist && sha256sum * > SHA256SUMS )
           gh release create "$GITHUB_REF_NAME" \
+            --repo "$GH_REPO" \
             --title "$GITHUB_REF_NAME" \
             --notes "contexttax ${GITHUB_REF_NAME}. Loopback dashboard, explicit hold, and the scan caps described in the README." \
-            *
+            dist/*
