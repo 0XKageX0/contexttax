@@ -338,7 +338,23 @@ func requireInstruction(rel string) error {
 }
 
 func inside(root, target string) bool {
-	rel, err := filepath.Rel(root, target)
+	if lexicalInside(root, target) {
+		return true
+	}
+	// Windows expands 8.3 names such as RUNNER~1, and a root passed through a
+	// symlink does not string-match its EvalSymlinks result. Compare the
+	// resolved paths only after the lexical check fails, so a path that is
+	// already outside stays outside.
+	rootReal, err1 := filepath.EvalSymlinks(root)
+	targetReal, err2 := filepath.EvalSymlinks(target)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return lexicalInside(rootReal, targetReal)
+}
+
+func lexicalInside(root, target string) bool {
+	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(target))
 	if err != nil {
 		return false
 	}

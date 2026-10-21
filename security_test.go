@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -113,7 +114,12 @@ func TestHeldFilesArePrivate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if info.Mode()&0o077 != 0 {
+		if info.Mode()&os.ModeSymlink != 0 {
+			t.Fatalf("%s is a symlink", path)
+		}
+		// Windows reports directory bits as 0777. It does not store the Unix
+		// mode passed to MkdirAll, so this check is meaningful on Unix only.
+		if runtime.GOOS != "windows" && info.Mode()&0o077 != 0 {
 			t.Fatalf("%s mode %o is group or world accessible", path, info.Mode().Perm())
 		}
 	}
@@ -368,10 +374,24 @@ func TestPurposeYAMLBlock(t *testing.T) {
 	}
 }
 
-func symlinkOrSkip(t *testing.T, oldname, newname string) {
-	t.Helper()
-	if err := os.Symlink(oldname, newname); err != nil {
+func TestWriteManifestThroughSymlinkedRoot(t *testing.T) {
+	real := t.TempDir()
+	parent := t.TempDir()
+	link := filepath.Join(parent, "root")
+	if err := os.Symlink(real, link); err != nil {
 		t.Skip("symlink not supported")
+	}
+	if err := os.MkdirAll(filepath.Join(link, ".contexttax", "held"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeManifest(link, []holdRecord{{
+		Path: "CLAUDE.md", Kind: "claude", Name: "Claude", Preload: "always",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Lstat(filepath.Join(real, ".contexttax", "held.json"))
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		t.Fatal("manifest was not written through the root symlink")
 	}
 }
 
