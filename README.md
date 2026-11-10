@@ -31,11 +31,11 @@ contexttax.exe C:\path\to\repo
 
 Do not use `./contexttax` in Command Prompt. That form is for macOS and Linux.
 
-A published `v*` tag includes `contexttax_<version>_<os>_<arch>` (`.exe` on Windows) and `SHA256SUMS`. You do not need Go to run that file. For tag v0.2.3, from the directory you want to scan:
+A published `v*` tag includes `contexttax_<version>_<os>_<arch>` (`.exe` on Windows) and `SHA256SUMS`. You do not need Go to run that file. For tag v0.2.4, from the directory you want to scan:
 
 ```bat
-contexttax_0.2.3_windows_amd64.exe
-contexttax_0.2.3_windows_amd64.exe C:\path\to\repo
+contexttax_0.2.4_windows_amd64.exe
+contexttax_0.2.4_windows_amd64.exe C:\path\to\repo
 ```
 
 ## Usage
@@ -92,6 +92,9 @@ An agent's total divides the summed character count once, so it can be a few tok
 
 - Parent directories are not scanned. User-level instruction files are not scanned either, including `~/.claude/CLAUDE.md`, `~/.codex`, and `~/.gemini/GEMINI.md`, unless that directory is the root you passed.
 - The token count is characters divided by 4. It undercounts CJK and other non-Latin text, because one character is often more than a quarter of a token.
+- On Windows the no-follow-symlink open flag is not available in the Go standard library, so a file swapped between the check and the open is still possible.
+- Cut off's delete checks identity, size and modification time but does not compare every byte. Finish does.
+- The Windows and macOS binaries were only tested on CI runners, not by hand.
 
 ## Findings
 
